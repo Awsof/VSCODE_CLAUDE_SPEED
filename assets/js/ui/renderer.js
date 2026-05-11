@@ -536,38 +536,38 @@ const Renderer = (() => {
     return `
       <form id="profile-creation-form">
         <div class="form-grid">
-          <label>
+          <label class="field">
             Nome do perfil
             <input id="profile-name" type="text" placeholder="Ex: Endpoint Produção" />
           </label>
-          <label>
+          <label class="field">
             Código
             <input id="profile-code" type="text" placeholder="Ex: PRD" />
           </label>
-          <label>
+          <label class="field">
             URL SOAP
             <input id="profile-url" type="url" placeholder="https://..." />
           </label>
-          <label>
+          <label class="field">
             Versão
             <input id="profile-version" type="text" placeholder="1.0" value="1.0" />
           </label>
-          <label>
+          <label class="field">
             Grupo
             <select id="profile-group-id">
               <option value="">Nenhum grupo</option>
               ${groups.map(group => `<option value="${group.id}">${group.nome}</option>`).join('')}
             </select>
           </label>
-          <label>
+          <label class="field">
             Tag XML
             <input id="profile-xml-tag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="diag:NumeroAtendimentoApoiado" />
           </label>
-          <label>
+          <label class="field">
             Cor
             <input id="profile-color" type="color" value="#0F9B94" />
           </label>
-          <label class="form-group" style="grid-column: 1 / -1;">
+          <label class="field" style="grid-column: 1 / -1;">
             Payload SOAP
             <textarea id="profile-payload" rows="6" placeholder="Insira o payload SOAP aqui"></textarea>
           </label>
@@ -628,15 +628,15 @@ const Renderer = (() => {
     return `
       <form id="group-creation-form">
         <div class="form-grid">
-          <label>
+          <label class="field">
             Nome do grupo
             <input id="group-name" type="text" placeholder="Ex: Produção" />
           </label>
-          <label>
+          <label class="field">
             Descrição
             <input id="group-description" type="text" placeholder="Ex: Endpoints de produção" />
           </label>
-          <label>
+          <label class="field">
             Cor
             <input id="group-color" type="color" value="#0F9B94" />
           </label>
@@ -688,26 +688,26 @@ const Renderer = (() => {
     return `
       <form id="scenario-creation-form">
         <div class="form-grid">
-          <label>
+          <label class="field">
             Nome do cenário
             <input id="scenario-name" type="text" placeholder="Ex: Check diário" />
           </label>
-          <label>
+          <label class="field">
             Descrição
             <input id="scenario-description" type="text" placeholder="Ex: Validação de endpoints" />
           </label>
-          <label class="form-group" style="grid-column: 1 / -1;">
+          <label class="field" style="grid-column: 1 / -1;">
             Perfil principal
             <select id="scenario-profile-id">
               <option value="">Selecione um perfil</option>
               ${profiles.map(profile => `<option value="${profile.id}">${profile.nome}</option>`).join('')}
             </select>
           </label>
-          <label>
+          <label class="field">
             Requisições
             <input id="scenario-requests" type="number" min="1" value="1" />
           </label>
-          <label>
+          <label class="field">
             Concorrência
             <input id="scenario-concurrency" type="number" min="1" value="1" />
           </label>

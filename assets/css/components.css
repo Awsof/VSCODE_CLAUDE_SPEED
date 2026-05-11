@@ -298,9 +298,22 @@
   gap: 10px;
 }
 
-.field label {
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-grid label {
+  display: contents;
 }
 
 .field input,
@@ -311,6 +324,18 @@
   border: 1px solid var(--border);
   background: var(--surface-alt);
   color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.field textarea {
+  min-height: 140px;
+}
+
+@media (max-width: 760px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field textarea {
