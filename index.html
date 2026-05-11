@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STP·SOAP v3 — Monitor de Performance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/charts.css">
+  <link rel="stylesheet" href="assets/css/animations.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Phase 1: Storage -->
+  <script src="assets/js/storage/engine.js"></script>
+  <script src="assets/js/storage/users.js"></script>
+  <script src="assets/js/storage/profiles.js"></script>
+  <script src="assets/js/storage/groups.js"></script>
+  <script src="assets/js/storage/scenarios.js"></script>
+  <script src="assets/js/storage/results.js"></script>  <script src="assets/js/storage/schedules.js"></script>
+  <!-- Phase 2: Auth -->
+  <script src="assets/js/auth/session.js"></script>
+  <script src="assets/js/auth/rbac.js"></script>
+
+  <!-- Phase 2: UI -->
+  <script src="assets/js/ui/login-screen.js"></script>
+
+  <!-- Phase 3: UI Components -->
+  <script src="assets/js/ui/modals.js"></script>
+  <script src="assets/js/ui/notifications.js"></script>
+  <script src="assets/js/ui/sidebar.js"></script>
+  <script src="assets/js/ui/renderer.js"></script>
+
+  <!-- Phase 4: Engine Layer -->
+  <script src="assets/js/engine/config.js"></script>
+  <script src="assets/js/engine/xml.js"></script>
+  <script src="assets/js/engine/utils.js"></script>
+  <script src="assets/js/engine/runner.js"></script>
+
+  <!-- Phase 5: Features Layer -->
+  <script src="assets/js/features/executor.js"></script>
+  <script src="assets/js/features/scheduler.js"></script>
+
+  <!-- Phase 6: Reports Layer -->
+  <script src="assets/js/reports/reports.js"></script>
+
+  <!-- Bootstrap -->
+  <script src="assets/js/app.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
