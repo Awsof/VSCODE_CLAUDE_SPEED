@@ -531,6 +531,237 @@ const Renderer = (() => {
     }
   };
 
+  const _buildProfileModalBody = () => {
+    const groups = GroupsManager.list();
+    return `
+      <form id="profile-creation-form">
+        <div class="form-grid">
+          <label>
+            Nome do perfil
+            <input id="profile-name" type="text" placeholder="Ex: Endpoint Produção" />
+          </label>
+          <label>
+            Código
+            <input id="profile-code" type="text" placeholder="Ex: PRD" />
+          </label>
+          <label>
+            URL SOAP
+            <input id="profile-url" type="url" placeholder="https://..." />
+          </label>
+          <label>
+            Versão
+            <input id="profile-version" type="text" placeholder="1.0" value="1.0" />
+          </label>
+          <label>
+            Grupo
+            <select id="profile-group-id">
+              <option value="">Nenhum grupo</option>
+              ${groups.map(group => `<option value="${group.id}">${group.nome}</option>`).join('')}
+            </select>
+          </label>
+          <label>
+            Tag XML
+            <input id="profile-xml-tag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="diag:NumeroAtendimentoApoiado" />
+          </label>
+          <label>
+            Cor
+            <input id="profile-color" type="color" value="#0F9B94" />
+          </label>
+          <label class="form-group" style="grid-column: 1 / -1;">
+            Payload SOAP
+            <textarea id="profile-payload" rows="6" placeholder="Insira o payload SOAP aqui"></textarea>
+          </label>
+        </div>
+      </form>
+    `;
+  };
+
+  const _showCreateProfileModal = () => {
+    ModalManager.open({
+      title: 'Criar Novo Perfil',
+      body: _buildProfileModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar',
+      onConfirm: _submitProfileForm
+    });
+  };
+
+  const _submitProfileForm = () => {
+    const name = document.getElementById('profile-name')?.value.trim();
+    const code = document.getElementById('profile-code')?.value.trim();
+    const url = document.getElementById('profile-url')?.value.trim();
+    const version = document.getElementById('profile-version')?.value.trim() || '1.0';
+    const groupId = document.getElementById('profile-group-id')?.value || null;
+    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
+    const color = document.getElementById('profile-color')?.value || '#0F9B94';
+    const payload = document.getElementById('profile-payload')?.value.trim();
+    const currentUser = state.currentUser || SessionManager.getCurrentUser();
+    const createdBy = currentUser?.usuario || 'admin';
+
+    if (!name || !code || !url || !payload) {
+      return NotificationsManager.danger('Nome, código, URL e payload são obrigatórios');
+    }
+
+    const profile = ProfilesManager.create({
+      nome: name,
+      codigo: code,
+      url,
+      version,
+      payloadTemplate: payload,
+      xmlTag,
+      cor: color,
+      groupId,
+      criadoPor: createdBy
+    });
+
+    if (!profile) {
+      return NotificationsManager.danger('Falha ao criar perfil. Verifique se já não existe um perfil igual.');
+    }
+
+    ModalManager.close();
+    NotificationsManager.success('Perfil criado com sucesso');
+    _renderMainContent('profiles');
+    _attachEventListeners();
+  };
+
+  const _buildGroupModalBody = () => {
+    return `
+      <form id="group-creation-form">
+        <div class="form-grid">
+          <label>
+            Nome do grupo
+            <input id="group-name" type="text" placeholder="Ex: Produção" />
+          </label>
+          <label>
+            Descrição
+            <input id="group-description" type="text" placeholder="Ex: Endpoints de produção" />
+          </label>
+          <label>
+            Cor
+            <input id="group-color" type="color" value="#0F9B94" />
+          </label>
+        </div>
+      </form>
+    `;
+  };
+
+  const _showCreateGroupModal = () => {
+    ModalManager.open({
+      title: 'Criar Novo Grupo',
+      body: _buildGroupModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar',
+      onConfirm: _submitGroupForm
+    });
+  };
+
+  const _submitGroupForm = () => {
+    const name = document.getElementById('group-name')?.value.trim();
+    const description = document.getElementById('group-description')?.value.trim();
+    const color = document.getElementById('group-color')?.value || '#0F9B94';
+    const currentUser = state.currentUser || SessionManager.getCurrentUser();
+    const createdBy = currentUser?.usuario || 'admin';
+
+    if (!name) {
+      return NotificationsManager.danger('Nome do grupo é obrigatório');
+    }
+
+    const group = GroupsManager.create({
+      nome: name,
+      descricao: description,
+      cor: color,
+      criadoPor: createdBy
+    });
+
+    if (!group) {
+      return NotificationsManager.danger('Falha ao criar grupo. Verifique se já não existe um grupo com este nome.');
+    }
+
+    ModalManager.close();
+    NotificationsManager.success('Grupo criado com sucesso');
+    _renderMainContent('groups');
+    _attachEventListeners();
+  };
+
+  const _buildScenarioModalBody = () => {
+    const profiles = ProfilesManager.list();
+    return `
+      <form id="scenario-creation-form">
+        <div class="form-grid">
+          <label>
+            Nome do cenário
+            <input id="scenario-name" type="text" placeholder="Ex: Check diário" />
+          </label>
+          <label>
+            Descrição
+            <input id="scenario-description" type="text" placeholder="Ex: Validação de endpoints" />
+          </label>
+          <label class="form-group" style="grid-column: 1 / -1;">
+            Perfil principal
+            <select id="scenario-profile-id">
+              <option value="">Selecione um perfil</option>
+              ${profiles.map(profile => `<option value="${profile.id}">${profile.nome}</option>`).join('')}
+            </select>
+          </label>
+          <label>
+            Requisições
+            <input id="scenario-requests" type="number" min="1" value="1" />
+          </label>
+          <label>
+            Concorrência
+            <input id="scenario-concurrency" type="number" min="1" value="1" />
+          </label>
+        </div>
+      </form>
+      <p class="field-help">Um cenário precisa de pelo menos um passo. Você poderá editar novos passos posteriormente.</p>
+    `;
+  };
+
+  const _showCreateScenarioModal = () => {
+    ModalManager.open({
+      title: 'Criar Novo Cenário',
+      body: _buildScenarioModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar',
+      onConfirm: _submitScenarioForm,
+      width: '560px'
+    });
+  };
+
+  const _submitScenarioForm = () => {
+    const name = document.getElementById('scenario-name')?.value.trim();
+    const description = document.getElementById('scenario-description')?.value.trim();
+    const profileId = document.getElementById('scenario-profile-id')?.value;
+    const requests = Number(document.getElementById('scenario-requests')?.value || 1);
+    const concurrency = Number(document.getElementById('scenario-concurrency')?.value || 1);
+    const currentUser = state.currentUser || SessionManager.getCurrentUser();
+    const createdBy = currentUser?.usuario || 'admin';
+
+    if (!name || !profileId) {
+      return NotificationsManager.danger('Nome do cenário e perfil são obrigatórios');
+    }
+
+    if (requests < 1 || concurrency < 1) {
+      return NotificationsManager.danger('Requisições e concorrência devem ser ao menos 1');
+    }
+
+    const scenario = ScenariosManager.create({
+      nome: name,
+      descricao: description,
+      passos: [{ ordem: 1, profileId, requests, concorrencia: concurrency }],
+      criadoPor: createdBy
+    });
+
+    if (!scenario) {
+      return NotificationsManager.danger('Falha ao criar cenário. Verifique os dados e tente novamente.');
+    }
+
+    ModalManager.close();
+    NotificationsManager.success('Cenário criado com sucesso');
+    _renderMainContent('scenarios');
+    _attachEventListeners();
+  };
+
   const _renderSettings = () => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
     return `
@@ -698,21 +929,21 @@ const Renderer = (() => {
     const newProfileButton = document.getElementById('btn-new-profile');
     if (newProfileButton) {
       newProfileButton.addEventListener('click', () => {
-        NotificationsManager.info('Novo perfil ainda será implementado na Fase 4');
+        _showCreateProfileModal();
       });
     }
 
     const newGroupButton = document.getElementById('btn-new-group');
     if (newGroupButton) {
       newGroupButton.addEventListener('click', () => {
-        NotificationsManager.info('Criação de grupos será habilitada na Fase 4');
+        _showCreateGroupModal();
       });
     }
 
     const newScenarioButton = document.getElementById('btn-new-scenario');
     if (newScenarioButton) {
       newScenarioButton.addEventListener('click', () => {
-        NotificationsManager.info('Gerenciamento de cenários será aprimorado na Fase 5');
+        _showCreateScenarioModal();
       });
     }
 
