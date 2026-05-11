@@ -332,6 +332,13 @@
   min-height: 140px;
 }
 
+.field-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: block;
+}
+
 @media (max-width: 760px) {
   .form-grid {
     grid-template-columns: 1fr;

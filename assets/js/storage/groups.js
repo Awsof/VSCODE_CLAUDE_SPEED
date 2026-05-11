@@ -82,7 +82,8 @@ const GroupsManager = (() => {
    */
   const getByName = (nome) => {
     const groups = list();
-    return groups.find(g => g.nome === nome) || null;
+    const target = (nome || '').trim().toLowerCase();
+    return groups.find(g => (g.nome || '').trim().toLowerCase() === target) || null;
   };
 
   /**
@@ -105,7 +106,7 @@ const GroupsManager = (() => {
       return null;
     }
 
-    // Verificar duplicidade por nome
+    // Verificar duplicidade por nome (case-insensitive)
     if (getByName(nome)) {
       console.error('[GroupsManager] Grupo com este nome já existe:', nome);
       return null;

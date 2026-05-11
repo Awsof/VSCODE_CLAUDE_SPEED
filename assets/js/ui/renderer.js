@@ -560,8 +560,9 @@ const Renderer = (() => {
             </select>
           </label>
           <label class="field">
-            Tag XML
-            <input id="profile-xml-tag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="diag:NumeroAtendimentoApoiado" />
+            Operação SOAP
+            <input id="profile-xml-tag" type="text" placeholder="diag:RecebeAtendimento" value="diag:RecebeAtendimento" />
+            <small class="field-note">Use o elemento de operação principal do request SOAP.</small>
           </label>
           <label class="field">
             Cor
@@ -569,7 +570,8 @@ const Renderer = (() => {
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Payload SOAP
-            <textarea id="profile-payload" rows="6" placeholder="Insira o payload SOAP aqui"></textarea>
+            <textarea id="profile-payload" rows="8" placeholder="Cole aqui todo o envelope SOAP, incluindo soapenv:Envelope e soapenv:Body"></textarea>
+            <small class="field-note">Cole o request SOAP completo aqui. Exemplo: todo o conteúdo entre &lt;soapenv:Envelope&gt; e &lt;/soapenv:Envelope&gt;.</small>
           </label>
         </div>
       </form>
@@ -584,6 +586,14 @@ const Renderer = (() => {
       cancelText: 'Cancelar',
       onConfirm: _submitProfileForm
     });
+
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitProfileForm();
+      };
+    }
   };
 
   const _submitProfileForm = () => {
@@ -592,14 +602,23 @@ const Renderer = (() => {
     const url = document.getElementById('profile-url')?.value.trim();
     const version = document.getElementById('profile-version')?.value.trim() || '1.0';
     const groupId = document.getElementById('profile-group-id')?.value || null;
-    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
+    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:RecebeAtendimento';
     const color = document.getElementById('profile-color')?.value || '#0F9B94';
     const payload = document.getElementById('profile-payload')?.value.trim();
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
     const createdBy = currentUser?.usuario || 'admin';
 
-    if (!name || !code || !url || !payload) {
-      return NotificationsManager.danger('Nome, código, URL e payload são obrigatórios');
+    if (!name) {
+      return NotificationsManager.danger('O nome do perfil é obrigatório');
+    }
+    if (!code) {
+      return NotificationsManager.danger('O código do perfil é obrigatório');
+    }
+    if (!url) {
+      return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
+    }
+    if (!payload) {
+      return NotificationsManager.danger('O Payload SOAP é obrigatório. Cole o envelope SOAP completo no campo Payload SOAP.');
     }
 
     const profile = ProfilesManager.create({
@@ -653,6 +672,14 @@ const Renderer = (() => {
       cancelText: 'Cancelar',
       onConfirm: _submitGroupForm
     });
+
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitGroupForm();
+      };
+    }
   };
 
   const _submitGroupForm = () => {
@@ -726,6 +753,14 @@ const Renderer = (() => {
       onConfirm: _submitScenarioForm,
       width: '560px'
     });
+
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitScenarioForm();
+      };
+    }
   };
 
   const _submitScenarioForm = () => {
