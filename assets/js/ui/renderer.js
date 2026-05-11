@@ -15,8 +15,8 @@ const Renderer = (() => {
       <div class="app-logo">
         <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" />
         <div>
-          <div class="app-logo-title">STP·SOAP</div>
-          <div class="app-logo-meta">v3 — ${user.usuario}</div>
+          <div class="app-logo-title">Speed Teste DBSync</div>
+          <div class="app-logo-meta">${user.usuario}</div>
         </div>
       </div>
       <div class="button-bar">
@@ -57,7 +57,7 @@ const Renderer = (() => {
         <div class="section-header">
           <div>
             <h2 class="section-title">Visão Geral</h2>
-            <p class="section-subtitle">Resumo rápido do desempenho e dados do STP·SOAP.</p>
+            <p class="section-subtitle">Resumo rápido do desempenho e dados do Speed Teste DBSync.</p>
           </div>
           <div class="button-bar">
             <button class="button primary" type="button" id="btn-refresh-dashboard">Atualizar</button>
@@ -652,7 +652,7 @@ const Renderer = (() => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `stp-soap-resultados-${new Date().toISOString().slice(0, 10)}.json`;
+        link.download = `speed-teste-dbsync-resultados-${new Date().toISOString().slice(0, 10)}.json`;
         link.click();
         URL.revokeObjectURL(url);
         NotificationsManager.success('Exportação de resultados iniciada');

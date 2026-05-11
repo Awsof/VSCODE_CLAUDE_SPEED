@@ -1,5 +1,5 @@
 /**
- * AppBootstrap — Inicialização da Aplicação STP·SOAP v3
+ * AppBootstrap — Inicialização da Aplicação Speed Teste DBSync
  * 
  * Fluxo:
  * 1. Carregar dados do localStorage (storage managers)
@@ -13,8 +13,9 @@ const AppBootstrap = (() => {
    * Inicializar aplicação
    */
   const init = () => {
-    console.log('%cSTP·SOAP v3.0.0', 'font-size:16px;font-weight:bold;color:#003761;');
+    console.log('%cSpeed Teste DBSync', 'font-size:16px;font-weight:bold;color:#003761;');
     console.log('[AppBootstrap] Inicializando aplicação...');
+
 
     try {
       // ========== STEP 1: Carregar dados persistentes ==========

@@ -27,7 +27,7 @@ const SidebarManager = (() => {
       <div class="nav-section">
         <div class="app-logo">
           <span class="app-logo-dot"></span>
-          <span>STP·SOAP</span>
+          <span>Speed Teste DBSync</span>
         </div>
         <p class="app-logo-meta">Monitor de Performance</p>
         <div class="nav-title">Navegação</div>

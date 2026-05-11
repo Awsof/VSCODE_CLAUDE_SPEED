@@ -18,8 +18,8 @@ const LoginScreenManager = (() => {
           <div class="login-brand">
             <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" />
             <div>
-              <div class="login-brand-title">STP·SOAP</div>
-              <div class="login-brand-subtitle">Monitor de Performance v3</div>
+              <div class="login-brand-title">Speed Teste DBSync</div>
+              <div class="login-brand-subtitle">Monitor de Performance</div>
             </div>
           </div>
 
@@ -76,7 +76,7 @@ const LoginScreenManager = (() => {
 
           <!-- Footer -->
           <div style="text-align:center;margin-top:20px;font-size:11px;color:#9CA3AF;letter-spacing:0.04em;">
-            STP·SOAP v3.0.0 • Vercel Serverless
+            Speed Teste DBSync • Vercel Serverless
           </div>
 
         </div>
@@ -101,7 +101,7 @@ const LoginScreenManager = (() => {
           <div class="login-brand">
             <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" />
             <div>
-              <div class="login-brand-title">Bem-vindo ao STP Monitor</div>
+              <div class="login-brand-title">Speed Teste DBSync</div>
               <div class="login-brand-subtitle">Configure a conta do primeiro administrador para começar</div>
             </div>
           </div>
@@ -210,6 +210,31 @@ const LoginScreenManager = (() => {
   /**
    * Listener para o formulário de login
    */
+  const _tryServerLogin = async (usuario, senha) => {
+    try {
+      console.log('[LoginScreenManager] Tentando /api/login com usuário:', usuario);
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+      });
+
+      console.log('[LoginScreenManager] /api/login status:', response.status);
+
+      if (!response.ok) {
+        console.warn('[LoginScreenManager] /api/login retornou status:', response.status);
+        return null;
+      }
+
+      const result = await response.json();
+      console.log('[LoginScreenManager] /api/login resultado:', { ok: result.ok, mode: result.mode });
+      return result;
+    } catch (error) {
+      console.warn('[LoginScreenManager] Erro no /api/login:', error.message);
+      return null;
+    }
+  };
+
   const _attachLoginFormListener = () => {
     const form = document.getElementById('login-form');
     if (!form) return;
@@ -236,11 +261,40 @@ const LoginScreenManager = (() => {
       errorDiv.style.display = 'none';
 
       try {
+        const serverLogin = await _tryServerLogin(username, password);
+        console.log('[LoginScreenManager] Server login response:', serverLogin);
+        
+        if (serverLogin && (serverLogin.mode === 'env-fallback' || serverLogin.mode === 'test-fallback')) {
+          if (serverLogin.ok) {
+            console.log('[LoginScreenManager] Login via API bem-sucedido');
+            const envUser = {
+              id: 'api-user-' + username,
+              nome: 'Usuário',
+              usuario: username.toLowerCase(),
+              nivel: 'admin'
+            };
+            SessionManager.login(envUser);
+            setTimeout(() => {
+              window.location.href = window.location.pathname;
+            }, 500);
+            return;
+          } else {
+            console.log('[LoginScreenManager] API login falhou:', serverLogin.message);
+            errorDiv.textContent = serverLogin.message || 'Usuário ou senha incorretos';
+            errorDiv.style.display = 'block';
+            loadingDiv.style.display = 'none';
+            submitBtn.disabled = false;
+            return;
+          }
+        }
+
         // Validar contra UsersManager (que usa localStorage)
+        console.log('[LoginScreenManager] Tentando validar contra localStorage');
         const user = await UsersManager.validate(username, password);
 
         if (user) {
           // Login bem-sucedido
+          console.log('[LoginScreenManager] Login localStorage bem-sucedido para:', username);
           SessionManager.login(user);
           
           // Redirecionar para app principal
@@ -249,6 +303,7 @@ const LoginScreenManager = (() => {
           }, 500);
         } else {
           // Credenciais inválidas
+          console.log('[LoginScreenManager] Login falhou para:', username);
           errorDiv.textContent = 'Usuário ou senha incorretos';
           errorDiv.style.display = 'block';
           loadingDiv.style.display = 'none';
@@ -353,10 +408,10 @@ const LoginScreenManager = (() => {
       return null;
     }
 
-    console.log('[LoginScreenManager] Criando usuário admin padrão: Admin/Admin');
+    console.log('[LoginScreenManager] Criando usuário admin padrão: admin/admin');
     return await UsersManager.create({
       nome: 'Administrador',
-      email: 'admin@stpsoap.local',
+      email: 'admin@dbsync.local',
       usuario: 'Admin',
       senha: 'Admin',
       nivel: 'admin'

@@ -82,7 +82,7 @@ const ReportsManager = (() => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Resultados');
 
-    const file = filename || `stp-soap-relatorio-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const file = filename || `speed-teste-dbsync-relatorio-${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, file);
     return file;
   };
@@ -99,7 +99,7 @@ const ReportsManager = (() => {
     let y = 50;
 
     doc.setFontSize(20);
-    doc.text('Relatório STP·SOAP v3', margin, y);
+    doc.text('Relatório Speed Teste DBSync', margin, y);
     y += 30;
 
     doc.setFontSize(12);
@@ -151,7 +151,7 @@ const ReportsManager = (() => {
       y += 14;
     });
 
-    const file = filename || `stp-soap-relatorio-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const file = filename || `speed-teste-dbsync-relatorio-${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(file);
     return file;
   };
@@ -177,7 +177,7 @@ const ReportsManager = (() => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.href = url;
-    const file = filename || `stp-soap-relatorio-${new Date().toISOString().slice(0, 10)}.csv`;
+    const file = filename || `speed-teste-dbsync-relatorio-${new Date().toISOString().slice(0, 10)}.csv`;
     link.download = file;
     link.click();
     URL.revokeObjectURL(url);
