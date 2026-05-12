@@ -818,7 +818,7 @@ const Renderer = (() => {
         codigoApoiado, codigoSenha, cor: color, groupId,
         criadoPor: createdBy
       });
-      if (!result) return NotificationsManager.danger('Falha ao criar perfil. Verifique se já não existe um perfil igual.');
+      if (!result) return NotificationsManager.danger(`Falha ao criar perfil. Já existe um perfil com o código "${code.toUpperCase()}". Use um código diferente.`);
       NotificationsManager.success('Perfil criado com sucesso');
     }
 

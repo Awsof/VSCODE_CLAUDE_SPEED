@@ -113,15 +113,16 @@ const ProfilesManager = (() => {
     const { nome, codigo, url, version, payloadTemplate, xmlTag, soapAction, cor, groupId, criadoPor, codigoApoiado, codigoSenha } = profileData;
 
     // Validações
-    if (!nome || !codigo || !url || !payloadTemplate || !criadoPor) {
+    if (!nome || !codigo || !url || !criadoPor) {
       console.error('[ProfilesManager] Campos obrigatórios faltando');
       return null;
     }
 
-    // Verificar duplicidade (código + url)
+    // Verificar duplicidade por código (normalizado)
     const profiles = list();
-    if (profiles.find(p => p.codigo === codigo && p.url === url)) {
-      console.error('[ProfilesManager] Perfil com código+URL já existe');
+    const normalizedCodigo = codigo.trim().toUpperCase();
+    if (profiles.find(p => p.codigo === normalizedCodigo)) {
+      console.error('[ProfilesManager] Código já existe:', normalizedCodigo);
       return null;
     }
 
@@ -132,7 +133,7 @@ const ProfilesManager = (() => {
         codigo: codigo.trim().toUpperCase(),
         url: url.trim(),
         version: version || '1.0',
-        payloadTemplate: payloadTemplate.trim(),
+        payloadTemplate: payloadTemplate ? payloadTemplate.trim() : null,
         xmlTag: xmlTag || 'diag:NumeroAtendimentoApoiado',
         soapAction: soapAction || null,
         codigoApoiado: codigoApoiado || null,

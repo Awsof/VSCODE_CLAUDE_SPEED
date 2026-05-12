@@ -27,11 +27,12 @@ const SidebarManager = (() => {
     const visibleItems = NAV_ITEMS.filter(_isAllowed);
     sidebar.innerHTML = `
       <div class="nav-section">
-        <div class="app-logo">
-          <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" />
-          <span>Speed Teste DBSync</span>
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 22px;">
+          <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" style="height:52px;margin-bottom:10px;" />
+          <div style="font-size:1.05rem;font-weight:800;color:var(--primary-dark);letter-spacing:0.03em;">Grupo DB</div>
+          <div style="font-size:0.88rem;font-weight:600;color:var(--text);margin-top:2px;">Speed Teste DBSync</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);letter-spacing:0.1em;margin-top:2px;">Monitor de Performance</div>
         </div>
-        <p class="app-logo-meta">Monitor de Performance</p>
         <div class="nav-title">Navegação</div>
         ${visibleItems.map(item => `
           <button class="nav-item ${item.id === activeId ? 'active' : ''}" data-tab="${item.id}" type="button">
