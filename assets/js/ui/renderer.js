@@ -28,6 +28,7 @@ const Renderer = (() => {
 
   const _renderPage = (tabId) => {
     switch (tabId) {
+      case 'methods': return _renderMethods();
       case 'profiles': return _renderTests();
       case 'groups': return _renderGroups();
       case 'scenarios': return _renderScenarios();
@@ -116,9 +117,53 @@ const Renderer = (() => {
     `;
   };
 
+  const _renderMethods = () => {
+    const methods = MethodsManager.list();
+    return `
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Métodos SOAP</h2>
+            <p class="section-subtitle">Cadastre as operações do webservice com SOAPAction e template XML. Cada método representa uma operação do WSDL.</p>
+          </div>
+          <button class="button primary" type="button" id="btn-new-method">Novo Método</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Operação</th>
+                <th>SOAPAction</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${methods.length ? methods.map(m => `
+                <tr>
+                  <td>
+                    <strong>${m.nome}</strong>
+                    ${m.descricao ? `<br><small style="color:var(--text-muted)">${m.descricao}</small>` : ''}
+                  </td>
+                  <td><code style="font-size:0.85em;background:var(--surface-2);padding:2px 6px;border-radius:4px;">${m.operacao}</code></td>
+                  <td style="font-size:0.8em;color:var(--text-muted);word-break:break-all;max-width:320px;">${m.soapAction}</td>
+                  <td>
+                    <button class="button secondary small" data-action="edit-method" data-method-id="${m.id}">Editar</button>
+                    <button class="button danger small" data-action="delete-method" data-method-id="${m.id}">Excluir</button>
+                  </td>
+                </tr>
+              `).join('') : '<tr><td colspan="4" class="empty-state">Nenhum método cadastrado. Clique em "Novo Método" para começar.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  };
+
   const _renderTests = () => {
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
+    const methods = MethodsManager.list();
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -134,7 +179,11 @@ const Renderer = (() => {
               <div class="card-list-item-title">${profile.nome}</div>
               <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${groups.find(g => g.id === profile.groupId)?.nome || 'Sem grupo'}</div>
               <div class="card-list-item-meta">URL: ${profile.url}</div>
+              <div class="card-list-item-meta" style="font-size:0.8em;color:${profile.soapAction ? 'var(--text-muted)' : '#DC2626'};">
+                SOAPAction: ${profile.soapAction ? profile.soapAction : '⚠ não configurado'}
+              </div>
               <div class="card-list-item-actions">
+                <button class="button secondary small" type="button" data-action="edit-profile" data-profile-id="${profile.id}">Editar</button>
                 <button class="button primary small" type="button" data-action="run-profile" data-profile-id="${profile.id}">Enviar agora</button>
               </div>
             </div>
@@ -150,11 +199,19 @@ const Renderer = (() => {
         </div>
         <div class="form-grid">
           <label class="field">
-            Perfil
+            Perfil (Endpoint)
             <select id="test-profile-select">
               <option value="">Selecione um perfil</option>
               ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
             </select>
+          </label>
+          <label class="field">
+            Método SOAP
+            <select id="test-method-select">
+              <option value="">Selecione um método</option>
+              ${methods.map(m => `<option value="${m.id}">${m.nome}</option>`).join('')}
+            </select>
+            ${methods.length === 0 ? '<small class="field-note" style="color:#DC2626;">Nenhum método cadastrado. Acesse "Métodos SOAP" para cadastrar.</small>' : ''}
           </label>
           <label class="field">
             Requisições
@@ -646,46 +703,52 @@ const Renderer = (() => {
     return results;
   };
 
-  const _buildProfileModalBody = () => {
+  const _buildProfileModalBody = (profile = null) => {
     const groups = GroupsManager.list();
+    const v = (field, fallback = '') => profile ? (profile[field] ?? fallback) : fallback;
     return `
       <form id="profile-creation-form">
         <div class="form-grid">
           <label class="field">
             Nome do perfil
-            <input id="profile-name" type="text" placeholder="Ex: Endpoint Produção" />
+            <input id="profile-name" type="text" placeholder="Ex: Endpoint Produção" value="${v('nome')}" />
           </label>
           <label class="field">
             Código
-            <input id="profile-code" type="text" placeholder="Ex: PRD" />
+            <input id="profile-code" type="text" placeholder="Ex: PRD" value="${v('codigo')}" />
           </label>
           <label class="field">
             URL SOAP
-            <input id="profile-url" type="url" placeholder="https://..." />
+            <input id="profile-url" type="url" placeholder="https://..." value="${v('url')}" />
           </label>
           <label class="field">
             Versão
-            <input id="profile-version" type="text" placeholder="1.0" value="1.0" />
+            <input id="profile-version" type="text" placeholder="1.0" value="${v('version', '1.0')}" />
           </label>
           <label class="field">
             Grupo
             <select id="profile-group-id">
               <option value="">Nenhum grupo</option>
-              ${groups.map(group => `<option value="${group.id}">${group.nome}</option>`).join('')}
+              ${groups.map(g => `<option value="${g.id}" ${profile?.groupId === g.id ? 'selected' : ''}>${g.nome}</option>`).join('')}
             </select>
           </label>
           <label class="field">
-            Operação SOAP
-            <input id="profile-xml-tag" type="text" placeholder="diag:RecebeAtendimento" value="diag:RecebeAtendimento" />
-            <small class="field-note">Use o elemento de operação principal do request SOAP.</small>
+            SOAPAction (header HTTP)
+            <input id="profile-soapaction" type="text" placeholder="Ex: http://tempuri.org/IService/OperacaoNome" value="${v('soapAction')}" />
+            <small class="field-note">Obrigatório para serviços WCF. Consulte o WSDL do serviço (&lt;soap:operation soapAction=...&gt;).</small>
+          </label>
+          <label class="field">
+            Tag XML de retorno (numDB)
+            <input id="profile-xml-tag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="${v('xmlTag', 'diag:NumeroAtendimentoApoiado')}" />
+            <small class="field-note">Elemento XML do qual extrair o número retornado pelo serviço.</small>
           </label>
           <label class="field">
             Cor
-            <input id="profile-color" type="color" value="#0F9B94" />
+            <input id="profile-color" type="color" value="${v('cor', '#0F9B94')}" />
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Payload SOAP
-            <textarea id="profile-payload" rows="8" placeholder="Cole aqui todo o envelope SOAP, incluindo soapenv:Envelope e soapenv:Body"></textarea>
+            <textarea id="profile-payload" rows="8" placeholder="Cole aqui todo o envelope SOAP, incluindo soapenv:Envelope e soapenv:Body">${v('payloadTemplate')}</textarea>
             <small class="field-note">Cole o request SOAP completo aqui. Exemplo: todo o conteúdo entre &lt;soapenv:Envelope&gt; e &lt;/soapenv:Envelope&gt;.</small>
           </label>
         </div>
@@ -698,63 +761,184 @@ const Renderer = (() => {
       title: 'Criar Novo Perfil',
       body: _buildProfileModalBody(),
       confirmText: 'Salvar',
-      cancelText: 'Cancelar',
-      onConfirm: _submitProfileForm
+      cancelText: 'Cancelar'
     });
-
     const confirmButton = document.getElementById('stp-modal-root-confirm');
     if (confirmButton) {
       confirmButton.onclick = (event) => {
         event.preventDefault();
-        _submitProfileForm();
+        _submitProfileForm(null);
       };
     }
   };
 
-  const _submitProfileForm = () => {
+  const _showEditProfileModal = (profileId) => {
+    const profile = ProfilesManager.getById(profileId);
+    if (!profile) return NotificationsManager.danger('Perfil não encontrado');
+    ModalManager.open({
+      title: 'Editar Perfil',
+      body: _buildProfileModalBody(profile),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitProfileForm(profileId);
+      };
+    }
+  };
+
+  const _submitProfileForm = (profileId = null) => {
     const name = document.getElementById('profile-name')?.value.trim();
     const code = document.getElementById('profile-code')?.value.trim();
     const url = document.getElementById('profile-url')?.value.trim();
     const version = document.getElementById('profile-version')?.value.trim() || '1.0';
     const groupId = document.getElementById('profile-group-id')?.value || null;
-    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:RecebeAtendimento';
+    const soapAction = document.getElementById('profile-soapaction')?.value.trim() || null;
+    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
     const color = document.getElementById('profile-color')?.value || '#0F9B94';
     const payload = document.getElementById('profile-payload')?.value.trim();
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
     const createdBy = currentUser?.usuario || 'admin';
 
-    if (!name) {
-      return NotificationsManager.danger('O nome do perfil é obrigatório');
-    }
-    if (!code) {
-      return NotificationsManager.danger('O código do perfil é obrigatório');
-    }
-    if (!url) {
-      return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
-    }
-    if (!payload) {
-      return NotificationsManager.danger('O Payload SOAP é obrigatório. Cole o envelope SOAP completo no campo Payload SOAP.');
-    }
+    if (!name) return NotificationsManager.danger('O nome do perfil é obrigatório');
+    if (!code) return NotificationsManager.danger('O código do perfil é obrigatório');
+    if (!url) return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
+    if (!payload) return NotificationsManager.danger('O Payload SOAP é obrigatório');
 
-    const profile = ProfilesManager.create({
-      nome: name,
-      codigo: code,
-      url,
-      version,
-      payloadTemplate: payload,
-      xmlTag,
-      cor: color,
-      groupId,
-      criadoPor: createdBy
-    });
-
-    if (!profile) {
-      return NotificationsManager.danger('Falha ao criar perfil. Verifique se já não existe um perfil igual.');
+    let result;
+    if (profileId) {
+      result = ProfilesManager.update(profileId, {
+        nome: name,
+        codigo: code,
+        url,
+        version,
+        payloadTemplate: payload,
+        xmlTag,
+        soapAction,
+        cor: color,
+        groupId
+      });
+      if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
+      NotificationsManager.success('Perfil atualizado com sucesso');
+    } else {
+      result = ProfilesManager.create({
+        nome: name,
+        codigo: code,
+        url,
+        version,
+        payloadTemplate: payload,
+        xmlTag,
+        soapAction,
+        cor: color,
+        groupId,
+        criadoPor: createdBy
+      });
+      if (!result) return NotificationsManager.danger('Falha ao criar perfil. Verifique se já não existe um perfil igual.');
+      NotificationsManager.success('Perfil criado com sucesso');
     }
 
     ModalManager.close();
-    NotificationsManager.success('Perfil criado com sucesso');
     _renderMainContent('profiles');
+    _attachEventListeners();
+  };
+
+  const _buildMethodModalBody = (method = null) => {
+    const v = (field, fallback = '') => method ? (method[field] ?? fallback) : fallback;
+    return `
+      <form id="method-creation-form">
+        <div class="form-grid">
+          <label class="field">
+            Nome do método
+            <input id="method-nome" type="text" placeholder="Ex: RecebeAtendimento" value="${v('nome')}" />
+            <small class="field-note">Nome amigável para identificação no sistema.</small>
+          </label>
+          <label class="field">
+            Operação SOAP
+            <input id="method-operacao" type="text" placeholder="Ex: RecebeAtendimento" value="${v('operacao')}" />
+            <small class="field-note">Nome exato da operação no WSDL (case-sensitive).</small>
+          </label>
+          <label class="field" style="grid-column: 1 / -1;">
+            SOAPAction
+            <input id="method-soapaction" type="text" placeholder="Ex: http://tempuri.org/wsrvProtocoloDBSync/RecebeAtendimento" value="${v('soapAction')}" />
+            <small class="field-note">Valor do header SOAPAction. Consulte o WSDL — atributo soapAction na tag &lt;soap:operation&gt;.</small>
+          </label>
+          <label class="field">
+            Tag XML de retorno
+            <input id="method-xmltag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="${v('xmlTag', 'diag:NumeroAtendimentoApoiado')}" />
+            <small class="field-note">Elemento XML do qual extrair o número retornado pelo serviço.</small>
+          </label>
+          <label class="field">
+            Descrição
+            <input id="method-descricao" type="text" placeholder="Ex: Recebe atendimento e retorna número apoiado" value="${v('descricao')}" />
+          </label>
+          <label class="field" style="grid-column: 1 / -1;">
+            Payload SOAP (template XML)
+            <textarea id="method-payload" rows="10" placeholder="Cole aqui o envelope SOAP completo. Use {{NUM_ATENDIMENTO}}, {{LOGIN}}, {{SENHA}} como placeholders.">${v('payloadTemplate')}</textarea>
+            <small class="field-note">Cole o XML completo incluindo &lt;soap:Envelope&gt;. Placeholders: {{NUM_ATENDIMENTO}}, {{LOGIN}}, {{SENHA}}.</small>
+          </label>
+        </div>
+      </form>
+    `;
+  };
+
+  const _showCreateMethodModal = () => {
+    ModalManager.open({
+      title: 'Novo Método SOAP',
+      body: _buildMethodModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitMethodForm(null); };
+    }
+  };
+
+  const _showEditMethodModal = (methodId) => {
+    const method = MethodsManager.getById(methodId);
+    if (!method) return NotificationsManager.danger('Método não encontrado');
+    ModalManager.open({
+      title: 'Editar Método SOAP',
+      body: _buildMethodModalBody(method),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitMethodForm(methodId); };
+    }
+  };
+
+  const _submitMethodForm = (methodId = null) => {
+    const nome = document.getElementById('method-nome')?.value.trim();
+    const operacao = document.getElementById('method-operacao')?.value.trim();
+    const soapAction = document.getElementById('method-soapaction')?.value.trim();
+    const xmlTag = document.getElementById('method-xmltag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
+    const descricao = document.getElementById('method-descricao')?.value.trim() || '';
+    const payloadTemplate = document.getElementById('method-payload')?.value.trim();
+    const currentUser = state.currentUser || SessionManager.getCurrentUser();
+    const criadoPor = currentUser?.usuario || 'admin';
+
+    if (!nome) return NotificationsManager.danger('Nome do método é obrigatório');
+    if (!soapAction) return NotificationsManager.danger('SOAPAction é obrigatório');
+    if (!payloadTemplate) return NotificationsManager.danger('Payload SOAP é obrigatório');
+
+    let result;
+    if (methodId) {
+      result = MethodsManager.update(methodId, { nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate });
+      if (!result) return NotificationsManager.danger('Falha ao atualizar método');
+      NotificationsManager.success('Método atualizado com sucesso');
+    } else {
+      result = MethodsManager.create({ nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate, criadoPor });
+      if (!result) return NotificationsManager.danger('Falha ao criar método');
+      NotificationsManager.success('Método criado com sucesso');
+    }
+
+    ModalManager.close();
+    _renderMainContent('methods');
     _attachEventListeners();
   };
 
@@ -1218,22 +1402,23 @@ const Renderer = (() => {
       });
     }
 
+    document.querySelectorAll('[data-action="edit-profile"]').forEach(button => {
+      button.addEventListener('click', () => {
+        _showEditProfileModal(button.dataset.profileId);
+      });
+    });
+
     document.querySelectorAll('[data-action="run-profile"]').forEach(button => {
-      button.addEventListener('click', async () => {
+      button.addEventListener('click', () => {
         const profileId = button.dataset.profileId;
         if (!profileId) return;
-
-        NotificationsManager.info('Enviando perfil agora...');
-        try {
-          const result = await _sendProfileNow(profileId);
-          const label = result.success ? 'sucesso' : 'falha';
-          NotificationsManager.success(`Envio manual do perfil concluído com ${label}`);
-          _renderMainContent('profiles');
-          _attachEventListeners();
-        } catch (error) {
-          console.error('[Renderer] Erro ao enviar perfil manualmente:', error);
-          NotificationsManager.danger(error.message || 'Falha no envio manual do perfil');
+        const profileSelect = document.getElementById('test-profile-select');
+        if (profileSelect) {
+          profileSelect.value = profileId;
+          document.getElementById('test-method-select')?.focus();
+          document.querySelector('#test-method-select')?.closest('section')?.scrollIntoView({ behavior: 'smooth' });
         }
+        NotificationsManager.info('Perfil selecionado no painel. Escolha um método SOAP e clique em Iniciar Teste.');
       });
     });
 
@@ -1313,11 +1498,22 @@ const Renderer = (() => {
     if (startTestBtn) {
       startTestBtn.addEventListener('click', async () => {
         const profileId = document.getElementById('test-profile-select')?.value;
-        if (!profileId) {
-          return NotificationsManager.danger('Selecione um perfil para iniciar o teste');
-        }
+        const methodId = document.getElementById('test-method-select')?.value;
+
+        if (!profileId) return NotificationsManager.danger('Selecione um perfil (endpoint) para iniciar o teste');
+        if (!methodId) return NotificationsManager.danger('Selecione um método SOAP para iniciar o teste');
+
         const profile = ProfilesManager.getById(profileId);
-        if (!profile) return;
+        const method = MethodsManager.getById(methodId);
+        if (!profile || !method) return;
+
+        // Perfil traz URL/credenciais; método traz SOAPAction/payload/xmlTag
+        const mergedProfile = {
+          ...profile,
+          payloadTemplate: method.payloadTemplate,
+          xmlTag: method.xmlTag,
+          soapAction: method.soapAction
+        };
 
         const requests = Number(document.getElementById('test-requests')?.value || 1);
         const concurrency = Number(document.getElementById('test-concurrency')?.value || 1);
@@ -1333,7 +1529,7 @@ const Renderer = (() => {
         }
 
         try {
-          const results = await RunnerEngine.executeBatch([profile], {
+          const results = await RunnerEngine.executeBatch([mergedProfile], {
             requestsPerProfile: requests,
             concurrency,
             timeout
@@ -1344,10 +1540,11 @@ const Renderer = (() => {
           });
 
           const successCount = results.filter(r => r.success).length;
+          const endpointLabel = `${profile.nome} / ${method.nome}`;
 
           ResultsManager.addBatch(results.map(r => ({
             profileId: r.profileId,
-            endpoint: r.profileName,
+            endpoint: endpointLabel,
             version: profile.version || '1.0',
             duration: r.duration,
             statusCode: r.statusCode,
@@ -1386,6 +1583,34 @@ const Renderer = (() => {
         NotificationsManager.warning('Teste abortado');
       });
     }
+
+    // --- Métodos SOAP ---
+    const newMethodBtn = document.getElementById('btn-new-method');
+    if (newMethodBtn) {
+      newMethodBtn.addEventListener('click', () => _showCreateMethodModal());
+    }
+
+    document.querySelectorAll('[data-action="edit-method"]').forEach(button => {
+      button.addEventListener('click', () => _showEditMethodModal(button.dataset.methodId));
+    });
+
+    document.querySelectorAll('[data-action="delete-method"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const methodId = button.dataset.methodId;
+        ModalManager.confirm({
+          title: 'Excluir método',
+          body: '<p>Deseja realmente excluir este método SOAP? A ação não pode ser desfeita.</p>',
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            MethodsManager.delete_(methodId);
+            NotificationsManager.warning('Método excluído');
+            _renderMainContent('methods');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
 
     // --- Novo Usuário ---
     const newUserBtn = document.getElementById('btn-new-user');

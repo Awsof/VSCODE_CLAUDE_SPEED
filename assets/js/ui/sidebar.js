@@ -4,6 +4,7 @@
 const SidebarManager = (() => {
   const NAV_ITEMS = [
     { id: 'dashboard', label: 'Dashboard', icon: '🏠', permission: null },
+    { id: 'methods', label: 'Métodos SOAP', icon: '⚡', permission: 'profiles:list' },
     { id: 'profiles', label: 'Testes', icon: '🧾', permission: 'profiles:list' },
     { id: 'groups', label: 'Grupos', icon: '🗂️', permission: 'groups:list' },
     { id: 'scenarios', label: 'Cenários', icon: '✅', permission: 'scenarios:list' },
