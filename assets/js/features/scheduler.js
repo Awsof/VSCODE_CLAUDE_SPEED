@@ -104,9 +104,27 @@ const ScheduleRunner = (() => {
         // Executar cenário
         results = await ScenarioExecutor.execute(schedule.cenarioId);
       } else {
-        // Executar profiles individuais
+        // Executar profiles individuais, mesclando o método SOAP
+        const method = schedule.config.methodId ? MethodsManager.getById(schedule.config.methodId) : null;
+
+        if (!method) {
+          console.error('[ScheduleRunner] Agendamento sem methodId configurado:', schedule.id);
+          SchedulerManager.recordExecution(schedule.id);
+          _emit('schedule-error', { schedule, error: 'Método SOAP não configurado. Edite o agendamento e selecione um método.' });
+          return;
+        }
+
         const profiles = schedule.profileIds
-          .map(id => ProfilesManager.getById(id))
+          .map(id => {
+            const profile = ProfilesManager.getById(id);
+            if (!profile) return null;
+            return {
+              ...profile,
+              payloadTemplate: method.payloadTemplate,
+              xmlTag: method.xmlTag || profile.xmlTag,
+              soapAction: method.soapAction || profile.soapAction
+            };
+          })
           .filter(p => p !== null);
 
         results = await RunnerEngine.executeBatch(profiles, schedule.config);

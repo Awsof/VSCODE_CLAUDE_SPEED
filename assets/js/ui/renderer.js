@@ -232,6 +232,24 @@ const Renderer = (() => {
         </div>
         <div id="test-progress" style="display:none;margin-top:16px;"></div>
       </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Gráficos — Teste Manual</h3>
+            <p class="section-subtitle">Baseado nas últimas 100 execuções manuais.</p>
+          </div>
+        </div>
+        <div class="wide-panel">
+          <div class="chart-card">
+            <div class="chart-title">A — Tempo de resposta por requisição (ordem de envio)</div>
+            <div class="chart-canvas"><canvas id="chart-manual-timeline"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">B — Frequência de envios por minuto</div>
+            <div class="chart-canvas"><canvas id="chart-manual-freq"></canvas></div>
+          </div>
+        </div>
+      </section>
     `;
   };
 
@@ -350,6 +368,21 @@ const Renderer = (() => {
           </table>
         </div>
       </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Performance dos Agendamentos</h3>
+            <p class="section-subtitle">Tempo de resposta das execuções agendadas.</p>
+          </div>
+          <div class="button-bar">
+            <button class="button secondary small" id="chart-filter-hour">Hora</button>
+            <button class="button primary small" id="chart-filter-day">Dia</button>
+            <button class="button secondary small" id="chart-filter-week">Semana</button>
+            <button class="button secondary small" id="chart-filter-month">Mês</button>
+          </div>
+        </div>
+        <div class="chart-canvas" style="height:260px;"><canvas id="chart-schedule-perf"></canvas></div>
+      </section>
     `;
   };
 
@@ -362,7 +395,10 @@ const Renderer = (() => {
             <h2 class="section-title">Resultados</h2>
             <p class="section-subtitle">Histórico recente das últimas execuções.</p>
           </div>
-          <button class="button secondary" type="button" id="btn-export-results">Exportar</button>
+          <div class="button-bar">
+            <button class="button secondary" type="button" id="btn-export-results">Exportar</button>
+            <button class="button danger" type="button" id="btn-clear-results">Limpar Registros</button>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="table">
@@ -459,6 +495,7 @@ const Renderer = (() => {
   const _buildScheduleModalBody = () => {
     const profiles = ProfilesManager.list();
     const scenarios = ScenariosManager.list();
+    const methods = MethodsManager.list();
     return `
       <form id="schedule-creation-form">
         <div class="form-grid">
@@ -473,8 +510,8 @@ const Renderer = (() => {
           <label>
             Tipo de execução
             <select id="schedule-target-type">
-              <option value="scenario">Cenário</option>
               <option value="profiles">Perfis</option>
+              <option value="scenario">Cenário</option>
             </select>
           </label>
           <label>
@@ -482,6 +519,13 @@ const Renderer = (() => {
             <select id="schedule-scenario-id">
               <option value="">Selecione um cenário</option>
               ${scenarios.map(s => `<option value="${s.id}">${s.nome}</option>`).join('')}
+            </select>
+          </label>
+          <label id="schedule-method-label">
+            Método SOAP
+            <select id="schedule-method-id">
+              <option value="">Selecione um método</option>
+              ${methods.map(m => `<option value="${m.id}">${m.nome}</option>`).join('')}
             </select>
           </label>
           <label id="schedule-profiles-label">
@@ -556,14 +600,17 @@ const Renderer = (() => {
     const targetType = document.getElementById('schedule-target-type');
     const scenarioField = document.getElementById('schedule-scenario-id');
     const profilesLabel = document.getElementById('schedule-profiles-label');
+    const methodLabel = document.getElementById('schedule-method-label');
 
     const updateTargetFields = () => {
       if (targetType.value === 'scenario') {
         scenarioField.parentElement.style.display = 'block';
         profilesLabel.style.display = 'block';
+        if (methodLabel) methodLabel.style.display = 'none';
       } else {
         scenarioField.parentElement.style.display = 'none';
         profilesLabel.style.display = 'block';
+        if (methodLabel) methodLabel.style.display = 'block';
       }
     };
 
@@ -578,6 +625,7 @@ const Renderer = (() => {
     const description = document.getElementById('schedule-description')?.value.trim();
     const targetType = document.getElementById('schedule-target-type')?.value;
     const scenarioId = document.getElementById('schedule-scenario-id')?.value || null;
+    const methodId = document.getElementById('schedule-method-id')?.value || null;
     const profileIds = Array.from(document.getElementById('schedule-profile-ids')?.selectedOptions || []).map(option => option.value);
     const startDate = document.getElementById('schedule-start-date')?.value;
     const endDate = document.getElementById('schedule-end-date')?.value;
@@ -595,6 +643,10 @@ const Renderer = (() => {
 
     if (targetType === 'scenario' && !scenarioId) {
       return NotificationsManager.danger('Selecione um cenário para agendar');
+    }
+
+    if (targetType !== 'scenario' && !methodId) {
+      return NotificationsManager.danger('Selecione um método SOAP para o agendamento');
     }
 
     if (profileIds.length === 0) {
@@ -618,7 +670,8 @@ const Renderer = (() => {
         config: {
           requestsPerProfile,
           concurrency,
-          timeout
+          timeout,
+          methodId: targetType !== 'scenario' ? methodId : null
         },
         agendamento: {
           dataInicio: startDate,
@@ -862,8 +915,8 @@ const Renderer = (() => {
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Payload SOAP (template XML)
-            <textarea id="method-payload" rows="10" placeholder="Cole aqui o envelope SOAP completo. Use {{NUM_ATENDIMENTO}}, {{LOGIN}}, {{SENHA}} como placeholders.">${v('payloadTemplate')}</textarea>
-            <small class="field-note">Cole o XML completo incluindo &lt;soap:Envelope&gt;. Placeholders: {{NUM_ATENDIMENTO}}, {{LOGIN}}, {{SENHA}}.</small>
+            <textarea id="method-payload" rows="10" placeholder="Cole aqui o envelope SOAP completo. Use {{NUM_ATENDIMENTO}}, {{CODIGO_APOIADO}}, {{CODIGO_SENHA}} como placeholders.">${v('payloadTemplate')}</textarea>
+            <small class="field-note">Cole o XML completo incluindo &lt;soap:Envelope&gt;. Placeholders: {{NUM_ATENDIMENTO}}, {{CODIGO_APOIADO}}, {{CODIGO_SENHA}}.</small>
           </label>
         </div>
       </form>
@@ -1216,6 +1269,149 @@ const Renderer = (() => {
     `;
   };
 
+  const _resetChart = (id) => {
+    if (state.chartRefs[id]) {
+      state.chartRefs[id].destroy();
+      delete state.chartRefs[id];
+    }
+  };
+
+  const _initializeManualCharts = () => {
+    const manualResults = ResultsManager.list().filter(r => r.origem === 'manual').slice(-100);
+
+    if (document.getElementById('chart-manual-timeline')) {
+      _resetChart('manual-timeline');
+      if (manualResults.length > 0) {
+        state.chartRefs['manual-timeline'] = new Chart(
+          document.getElementById('chart-manual-timeline').getContext('2d'), {
+            type: 'line',
+            data: {
+              labels: manualResults.map((_, i) => `#${i + 1}`),
+              datasets: [{
+                label: 'Tempo (ms)',
+                data: manualResults.map(r => r.duration),
+                borderColor: 'rgba(15, 155, 148, 0.9)',
+                backgroundColor: 'rgba(15, 155, 148, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: manualResults.length > 50 ? 2 : 4
+              }]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
+                x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
+              },
+              responsive: true,
+              maintainAspectRatio: false
+            }
+          }
+        );
+      }
+    }
+
+    if (document.getElementById('chart-manual-freq')) {
+      _resetChart('manual-freq');
+      if (manualResults.length > 0) {
+        const buckets = {};
+        manualResults.forEach(r => {
+          const d = new Date(r.executadoEm);
+          const key = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          buckets[key] = (buckets[key] || 0) + 1;
+        });
+        const labels = Object.keys(buckets).sort();
+        state.chartRefs['manual-freq'] = new Chart(
+          document.getElementById('chart-manual-freq').getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Envios',
+                data: labels.map(k => buckets[k]),
+                backgroundColor: 'rgba(196, 155, 60, 0.65)',
+                borderColor: 'transparent'
+              }]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
+                x: { ticks: { color: 'var(--text-muted)' } }
+              },
+              responsive: true,
+              maintainAspectRatio: false
+            }
+          }
+        );
+      }
+    }
+  };
+
+  const _initializeScheduleChart = (filter = 'day') => {
+    if (!document.getElementById('chart-schedule-perf')) return;
+
+    const now = new Date();
+    let cutoff;
+    if (filter === 'hour')       cutoff = new Date(now - 60 * 60 * 1000);
+    else if (filter === 'week')  cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    else if (filter === 'month') cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    else                         cutoff = new Date(now - 24 * 60 * 60 * 1000);
+
+    const results = ResultsManager.list()
+      .filter(r => r.origem === 'scheduled' && new Date(r.executadoEm) >= cutoff)
+      .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+
+    const formatLabel = (iso) => {
+      const d = new Date(iso);
+      if (filter === 'hour' || filter === 'day') {
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+      return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2,'0')}h`;
+    };
+
+    _resetChart('schedule-perf');
+    state.chartRefs['schedule-perf'] = new Chart(
+      document.getElementById('chart-schedule-perf').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: results.map(r => formatLabel(r.executadoEm)),
+          datasets: [{
+            label: 'Tempo (ms)',
+            data: results.map(r => r.duration),
+            borderColor: 'rgba(15, 155, 148, 0.9)',
+            backgroundColor: 'rgba(15, 155, 148, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: results.length > 50 ? 2 : 4
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: results.length === 0,
+              text: 'Nenhuma execução agendada no período selecionado',
+              color: 'var(--text-muted)'
+            }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
+            x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 15 } }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      }
+    );
+
+    ['hour', 'day', 'week', 'month'].forEach(f => {
+      const btn = document.getElementById(`chart-filter-${f}`);
+      if (!btn) return;
+      btn.className = `button small ${f === filter ? 'primary' : 'secondary'}`;
+    });
+  };
+
   const _initializeDashboardCharts = () => {
     const results = ResultsManager.list();
     const uniqueEndpoints = [...new Set(results.map(r => r.endpoint))];
@@ -1235,15 +1431,8 @@ const Renderer = (() => {
         : 0;
     });
 
-    const resetChart = (id) => {
-      if (state.chartRefs[id]) {
-        state.chartRefs[id].destroy();
-        delete state.chartRefs[id];
-      }
-    };
-
     if (document.getElementById('chart-success')) {
-      resetChart('success');
+      _resetChart('success');
       state.chartRefs.success = new Chart(document.getElementById('chart-success').getContext('2d'), {
         type: 'doughnut',
         data: {
@@ -1265,7 +1454,7 @@ const Renderer = (() => {
     }
 
     if (document.getElementById('chart-duration')) {
-      resetChart('duration');
+      _resetChart('duration');
       state.chartRefs.duration = new Chart(document.getElementById('chart-duration').getContext('2d'), {
         type: 'bar',
         data: {
@@ -1306,6 +1495,24 @@ const Renderer = (() => {
       refreshButton.addEventListener('click', () => {
         _renderMainContent('dashboard');
         NotificationsManager.success('Dashboard atualizado');
+      });
+    }
+
+    const clearResultsButton = document.getElementById('btn-clear-results');
+    if (clearResultsButton) {
+      clearResultsButton.addEventListener('click', () => {
+        ModalManager.confirm({
+          title: 'Limpar todos os registros',
+          body: '<p>Todos os resultados de testes serão removidos permanentemente. Deseja continuar?</p>',
+          confirmText: 'Limpar',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            ResultsManager.clear();
+            NotificationsManager.success('Registros limpos com sucesso');
+            _renderMainContent('results');
+            _attachEventListeners();
+          }
+        });
       });
     }
 
@@ -1607,6 +1814,7 @@ const Renderer = (() => {
             progressDiv.innerHTML = `<span class="badge success">${successCount}/${results.length} com sucesso</span>`;
           }
           NotificationsManager.success(`Teste concluído: ${successCount}/${results.length} com sucesso`);
+          setTimeout(_initializeManualCharts, 150);
         } catch (error) {
           if (progressDiv) progressDiv.innerHTML = '<span class="badge danger">Erro ou teste abortado</span>';
           NotificationsManager.danger('Erro durante o teste: ' + (error.message || 'Desconhecido'));
@@ -1616,6 +1824,11 @@ const Renderer = (() => {
         }
       });
     }
+
+    ['hour', 'day', 'week', 'month'].forEach(filter => {
+      const btn = document.getElementById(`chart-filter-${filter}`);
+      if (btn) btn.addEventListener('click', () => _initializeScheduleChart(filter));
+    });
 
     if (abortTestBtn) {
       abortTestBtn.addEventListener('click', () => {
@@ -1708,6 +1921,10 @@ const Renderer = (() => {
     _attachEventListeners();
     if (tabId === 'dashboard') {
       setTimeout(_initializeDashboardCharts, 100);
+    } else if (tabId === 'profiles') {
+      setTimeout(_initializeManualCharts, 100);
+    } else if (tabId === 'schedules') {
+      setTimeout(() => _initializeScheduleChart('day'), 100);
     }
   };
 

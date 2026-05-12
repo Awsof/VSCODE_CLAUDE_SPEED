@@ -1,3 +1,15 @@
+.wide-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .wide-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chart-card {
   display: flex;
   flex-direction: column;

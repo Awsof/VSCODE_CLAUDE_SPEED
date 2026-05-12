@@ -47,7 +47,8 @@ const SchedulerManager = (() => {
         requestsPerProfile: scheduleData.config?.requestsPerProfile || 1,
         concurrency: scheduleData.config?.concurrency || 3,
         rampUp: scheduleData.config?.rampUp || 0,
-        timeout: scheduleData.config?.timeout || 120
+        timeout: scheduleData.config?.timeout || 120,
+        methodId: scheduleData.config?.methodId || null
       },
       cron: scheduleData.cron ? scheduleData.cron.trim() : null,
       agendamento: scheduleData.agendamento || null,
