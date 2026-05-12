@@ -9,7 +9,8 @@ const LoginScreenManager = (() => {
    */
   const renderLoginScreen = () => {
     const container = document.getElementById('app') || document.body;
-    
+    if (container.id === 'app') container.classList.add('auth-mode');
+
     const html = `
       <div id="login-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#F8F9FA;">
         <div style="background:#FFFFFF;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);padding:40px;max-width:400px;width:100%;">
@@ -92,7 +93,8 @@ const LoginScreenManager = (() => {
    */
   const renderFirstAccessScreen = () => {
     const container = document.getElementById('app') || document.body;
-    
+    if (container.id === 'app') container.classList.add('auth-mode');
+
     const html = `
       <div id="first-access-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#003761 0%,#0F9B94 100%);">
         <div style="background:#FFFFFF;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:40px;max-width:450px;width:100%;">

@@ -4,12 +4,13 @@
 const SidebarManager = (() => {
   const NAV_ITEMS = [
     { id: 'dashboard', label: 'Dashboard', icon: '🏠', permission: null },
-    { id: 'profiles', label: 'Perfis', icon: '🧾', permission: 'profiles:list' },
+    { id: 'profiles', label: 'Testes', icon: '🧾', permission: 'profiles:list' },
     { id: 'groups', label: 'Grupos', icon: '🗂️', permission: 'groups:list' },
     { id: 'scenarios', label: 'Cenários', icon: '✅', permission: 'scenarios:list' },
     { id: 'schedules', label: 'Agendamentos', icon: '⏰', permission: 'scheduler:list' },
     { id: 'results', label: 'Resultados', icon: '📊', permission: 'results:list' },
     { id: 'reports', label: 'Relatórios', icon: '📄', permission: 'export:results' },
+    { id: 'users', label: 'Usuários', icon: '👥', permission: 'users:manage' },
     { id: 'settings', label: 'Configurações', icon: '⚙️', permission: 'settings:view' }
   ];
 
@@ -26,7 +27,7 @@ const SidebarManager = (() => {
     sidebar.innerHTML = `
       <div class="nav-section">
         <div class="app-logo">
-          <span class="app-logo-dot"></span>
+          <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" />
           <span>Speed Teste DBSync</span>
         </div>
         <p class="app-logo-meta">Monitor de Performance</p>

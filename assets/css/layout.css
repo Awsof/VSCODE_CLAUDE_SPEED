@@ -43,6 +43,11 @@ body {
   background: var(--bg);
 }
 
+/* Neutraliza o grid durante a tela de login */
+#app.auth-mode {
+  display: block;
+}
+
 @media (max-width: 1040px) {
   #app {
     grid-template-columns: 1fr;

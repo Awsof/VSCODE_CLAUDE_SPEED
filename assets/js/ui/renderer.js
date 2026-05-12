@@ -28,12 +28,13 @@ const Renderer = (() => {
 
   const _renderPage = (tabId) => {
     switch (tabId) {
-      case 'profiles': return _renderProfiles();
+      case 'profiles': return _renderTests();
       case 'groups': return _renderGroups();
       case 'scenarios': return _renderScenarios();
       case 'schedules': return _renderSchedules();
       case 'results': return _renderResults();
       case 'reports': return _renderReports();
+      case 'users': return _renderUsers();
       case 'settings': return _renderSettings();
       default: return _renderDashboard();
     }
@@ -115,14 +116,14 @@ const Renderer = (() => {
     `;
   };
 
-  const _renderProfiles = () => {
+  const _renderTests = () => {
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Perfis</h2>
+            <h2 class="section-title">Testes</h2>
             <p class="section-subtitle">Gerencie seus endpoints SOAP e templates de payload.</p>
           </div>
           <button class="button primary" type="button" id="btn-new-profile">Novo Perfil</button>
@@ -133,9 +134,46 @@ const Renderer = (() => {
               <div class="card-list-item-title">${profile.nome}</div>
               <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${groups.find(g => g.id === profile.groupId)?.nome || 'Sem grupo'}</div>
               <div class="card-list-item-meta">URL: ${profile.url}</div>
+              <div class="card-list-item-actions">
+                <button class="button primary small" type="button" data-action="run-profile" data-profile-id="${profile.id}">Enviar agora</button>
+              </div>
             </div>
           `).join('') : '<div class="empty-state">Nenhum perfil cadastrado ainda.</div>'}
         </div>
+      </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Painel de Execução</h3>
+            <p class="section-subtitle">Execute testes de carga contra um perfil cadastrado.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label class="field">
+            Perfil
+            <select id="test-profile-select">
+              <option value="">Selecione um perfil</option>
+              ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field">
+            Requisições
+            <input id="test-requests" type="number" min="1" value="1" />
+          </label>
+          <label class="field">
+            Concorrência
+            <input id="test-concurrency" type="number" min="1" value="1" />
+          </label>
+          <label class="field">
+            Timeout (segundos)
+            <input id="test-timeout" type="number" min="10" value="120" />
+          </label>
+        </div>
+        <div class="button-bar" style="margin-top:16px;">
+          <button class="button primary" type="button" id="btn-start-test">Iniciar Teste</button>
+          <button class="button danger" type="button" id="btn-abort-test" disabled>Abortar</button>
+        </div>
+        <div id="test-progress" style="display:none;margin-top:16px;"></div>
       </section>
     `;
   };
@@ -179,6 +217,9 @@ const Renderer = (() => {
             <div class="card-list-item">
               <div class="card-list-item-title">${s.nome}</div>
               <div class="card-list-item-meta">${s.passos?.length || 0} passos · ${s.descricao || 'Sem descrição'}</div>
+              <div class="card-list-item-actions">
+                <button class="button primary small" type="button" data-action="run-scenario" data-scenario-id="${s.id}">Executar agora</button>
+              </div>
             </div>
           `).join('') : '<div class="empty-state">Nenhum cenário configurado ainda.</div>'}
         </div>
@@ -227,6 +268,7 @@ const Renderer = (() => {
                 <th>Próxima</th>
                 <th>Status</th>
                 <th>Ações</th>
+                <th>Ação rápida</th>
               </tr>
             </thead>
             <tbody>
@@ -242,8 +284,11 @@ const Renderer = (() => {
                     <button class="button secondary small" type="button" data-action="toggle-schedule" data-schedule-id="${schedule.id}">${schedule.ativo ? 'Desativar' : 'Ativar'}</button>
                     <button class="button danger small" type="button" data-action="delete-schedule" data-schedule-id="${schedule.id}">Excluir</button>
                   </td>
+                  <td>
+                    <button class="button primary small" type="button" data-action="run-schedule" data-schedule-id="${schedule.id}">Executar agora</button>
+                  </td>
                 </tr>
-              `).join('') : '<tr><td colspan="7" class="empty-state">Nenhum agendamento configurado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum agendamento configurado ainda.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -531,6 +576,74 @@ const Renderer = (() => {
     }
   };
 
+  const _sendProfileNow = async (profileId) => {
+    const profile = ProfilesManager.getById(profileId);
+    if (!profile) {
+      throw new Error('Perfil não encontrado');
+    }
+
+    const attendanceNumber = UtilsEngine.generateAttendanceNumber(profile.codigo);
+    const filledPayload = ProfilesManager.fillPayload(profileId, {
+      NUM_ATENDIMENTO: attendanceNumber,
+      LOGIN: profile.login || '',
+      SENHA: profile.senha || ''
+    });
+
+    const result = await RunnerEngine.executeRequest(profile, attendanceNumber, filledPayload, {
+      timeout: ConfigEngine.get('DEFAULT_REQUEST_TIMEOUT') || 120
+    });
+
+    ResultsManager.add({
+      profileId: profile.id,
+      endpoint: profile.nome,
+      version: profile.version || '1.0',
+      duration: result.duration,
+      statusCode: result.statusCode,
+      success: result.success,
+      numAtendimentoDB: result.numDB,
+      requestPayload: result.requestPayload,
+      responseBody: result.responseBody,
+      errorDetail: result.errorDetail,
+      origem: 'manual',
+      scheduleId: null,
+      executadoPor: state.currentUser.id,
+      cenarioId: null
+    });
+
+    return result;
+  };
+
+  const _sendScenarioNow = async (scenarioId) => {
+    const scenario = ScenariosManager.getById(scenarioId);
+    if (!scenario) {
+      throw new Error('Cenário não encontrado');
+    }
+
+    const results = await ScenarioExecutor.execute(scenarioId);
+    if (!results || results.length === 0) {
+      return [];
+    }
+
+    ResultsManager.addBatch(results.map(result => ({
+      profileId: result.profileId,
+      endpoint: result.profileName,
+      version: 'v3',
+      duration: result.duration,
+      statusCode: result.statusCode,
+      success: result.success,
+      numAtendimentoDB: result.numDB,
+      requestPayload: result.requestPayload,
+      responseBody: result.responseBody,
+      errorDetail: result.errorDetail,
+      origem: 'manual',
+      scheduleId: null,
+      executadoPor: state.currentUser.id,
+      cenarioId: scenario.id
+    })));
+
+    return results;
+  };
+
   const _buildProfileModalBody = () => {
     const groups = GroupsManager.list();
     return `
@@ -797,6 +910,120 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
+  const _renderUsers = () => {
+    const users = UsersManager.list();
+    const canCreate = RBACManager.canCurrent('users:create');
+    return `
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Usuários</h2>
+            <p class="section-subtitle">Gerencie os usuários com acesso ao sistema.</p>
+          </div>
+          ${canCreate ? '<button class="button primary" type="button" id="btn-new-user">Novo Usuário</button>' : ''}
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Usuário</th>
+                <th>Nível</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.length ? users.map(u => `
+                <tr>
+                  <td>${u.nome}</td>
+                  <td>${u.usuario}</td>
+                  <td>${RBACManager.getLevelDescription(u.nivel).split(' —')[0]}</td>
+                  <td>${u.ativo ? '<span class="badge success">Ativo</span>' : '<span class="badge danger">Inativo</span>'}</td>
+                  <td>${u.criadoEm ? new Date(u.criadoEm).toLocaleString('pt-BR') : '—'}</td>
+                  <td>
+                    <button class="button secondary small" type="button" data-action="toggle-user" data-user-id="${u.id}">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+                    <button class="button danger small" type="button" data-action="delete-user" data-user-id="${u.id}">Excluir</button>
+                  </td>
+                </tr>
+              `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum usuário cadastrado.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  };
+
+  const _buildUserModalBody = () => `
+    <form id="user-creation-form">
+      <div class="form-grid">
+        <label class="field">
+          Nome completo
+          <input id="user-nome" type="text" placeholder="Ex: João Silva" />
+        </label>
+        <label class="field">
+          Email
+          <input id="user-email" type="email" placeholder="Ex: joao@empresa.com" />
+        </label>
+        <label class="field">
+          Usuário
+          <input id="user-usuario" type="text" placeholder="Ex: joao.silva" />
+        </label>
+        <label class="field">
+          Senha
+          <input id="user-senha" type="password" placeholder="Mínimo 6 caracteres" />
+        </label>
+        <label class="field">
+          Nível
+          <select id="user-nivel">
+            <option value="operador">Operador</option>
+            <option value="visualizador">Visualizador</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </label>
+      </div>
+    </form>
+  `;
+
+  const _showCreateUserModal = () => {
+    ModalManager.open({
+      title: 'Novo Usuário',
+      body: _buildUserModalBody(),
+      confirmText: 'Criar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitUserForm(); };
+    }
+  };
+
+  const _submitUserForm = async () => {
+    const nome = document.getElementById('user-nome')?.value.trim();
+    const email = document.getElementById('user-email')?.value.trim();
+    const usuario = document.getElementById('user-usuario')?.value.trim();
+    const senha = document.getElementById('user-senha')?.value;
+    const nivel = document.getElementById('user-nivel')?.value;
+
+    if (!nome || !email || !usuario || !senha || !nivel) {
+      return NotificationsManager.danger('Preencha todos os campos obrigatórios');
+    }
+    if (senha.length < 6) {
+      return NotificationsManager.danger('Senha deve ter no mínimo 6 caracteres');
+    }
+
+    const created = await UsersManager.create({ nome, email, usuario, senha, nivel });
+    if (!created) {
+      return NotificationsManager.danger('Falha ao criar usuário. Verifique se usuário ou email já existem.');
+    }
+
+    ModalManager.close();
+    NotificationsManager.success('Usuário criado com sucesso');
+    _renderMainContent('users');
+    _attachEventListeners();
+  };
+
   const _renderSettings = () => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
     return `
@@ -989,6 +1216,45 @@ const Renderer = (() => {
       });
     }
 
+    document.querySelectorAll('[data-action="run-profile"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const profileId = button.dataset.profileId;
+        if (!profileId) return;
+
+        NotificationsManager.info('Enviando perfil agora...');
+        try {
+          const result = await _sendProfileNow(profileId);
+          const label = result.success ? 'sucesso' : 'falha';
+          NotificationsManager.success(`Envio manual do perfil concluído com ${label}`);
+          _renderMainContent('profiles');
+          _attachEventListeners();
+        } catch (error) {
+          console.error('[Renderer] Erro ao enviar perfil manualmente:', error);
+          NotificationsManager.danger(error.message || 'Falha no envio manual do perfil');
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-action="run-scenario"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const scenarioId = button.dataset.scenarioId;
+        if (!scenarioId) return;
+
+        NotificationsManager.info('Executando cenário agora...');
+        try {
+          const results = await _sendScenarioNow(scenarioId);
+          const successCount = results.filter(r => r.success).length;
+          const totalCount = results.length;
+          NotificationsManager.success(`Cenário executado: ${successCount}/${totalCount} com sucesso`);
+          _renderMainContent('scenarios');
+          _attachEventListeners();
+        } catch (error) {
+          console.error('[Renderer] Erro ao executar cenário manualmente:', error);
+          NotificationsManager.danger(error.message || 'Falha na execução manual do cenário');
+        }
+      });
+    });
+
     document.querySelectorAll('[data-action="toggle-schedule"]').forEach(button => {
       button.addEventListener('click', () => {
         const scheduleId = button.dataset.scheduleId;
@@ -1018,6 +1284,143 @@ const Renderer = (() => {
         });
       });
     });
+
+    document.querySelectorAll('[data-action="run-schedule"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const scheduleId = button.dataset.scheduleId;
+        const schedule = SchedulerManager.getById(scheduleId);
+        if (!schedule) return;
+
+        NotificationsManager.info('Executando agendamento agora...');
+        try {
+          await ScheduleRunner.forceExecute(scheduleId);
+          NotificationsManager.success(`Agendamento "${schedule.nome}" executado com sucesso`);
+          _renderMainContent('schedules');
+          _attachEventListeners();
+        } catch (error) {
+          console.error('[Renderer] Erro ao executar agendamento manualmente:', error);
+          NotificationsManager.danger(error.message || 'Falha ao executar agendamento');
+        }
+      });
+    });
+
+    // --- Painel de Execução (aba Testes) ---
+    const startTestBtn = document.getElementById('btn-start-test');
+    const abortTestBtn = document.getElementById('btn-abort-test');
+
+    if (startTestBtn) {
+      startTestBtn.addEventListener('click', async () => {
+        const profileId = document.getElementById('test-profile-select')?.value;
+        if (!profileId) {
+          return NotificationsManager.danger('Selecione um perfil para iniciar o teste');
+        }
+        const profile = ProfilesManager.getById(profileId);
+        if (!profile) return;
+
+        const requests = Number(document.getElementById('test-requests')?.value || 1);
+        const concurrency = Number(document.getElementById('test-concurrency')?.value || 1);
+        const timeout = Number(document.getElementById('test-timeout')?.value || 120);
+
+        startTestBtn.disabled = true;
+        if (abortTestBtn) abortTestBtn.disabled = false;
+
+        const progressDiv = document.getElementById('test-progress');
+        if (progressDiv) {
+          progressDiv.style.display = 'block';
+          progressDiv.innerHTML = '<span class="badge info">Iniciando...</span>';
+        }
+
+        try {
+          const results = await RunnerEngine.executeBatch([profile], {
+            requestsPerProfile: requests,
+            concurrency,
+            timeout
+          }, (progress) => {
+            if (progressDiv) {
+              progressDiv.innerHTML = `<span class="badge info">${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;
+            }
+          });
+
+          const successCount = results.filter(r => r.success).length;
+
+          ResultsManager.addBatch(results.map(r => ({
+            profileId: r.profileId,
+            endpoint: r.profileName,
+            version: profile.version || '1.0',
+            duration: r.duration,
+            statusCode: r.statusCode,
+            success: r.success,
+            numAtendimentoDB: r.numDB,
+            requestPayload: r.requestPayload,
+            responseBody: r.responseBody,
+            errorDetail: r.errorDetail,
+            origem: 'manual',
+            scheduleId: null,
+            executadoPor: state.currentUser?.id,
+            cenarioId: null
+          })));
+
+          if (progressDiv) {
+            progressDiv.innerHTML = `<span class="badge success">${successCount}/${results.length} com sucesso</span>`;
+          }
+          NotificationsManager.success(`Teste concluído: ${successCount}/${results.length} com sucesso`);
+        } catch (error) {
+          if (progressDiv) progressDiv.innerHTML = '<span class="badge danger">Erro ou teste abortado</span>';
+          NotificationsManager.danger('Erro durante o teste: ' + (error.message || 'Desconhecido'));
+        } finally {
+          startTestBtn.disabled = false;
+          if (abortTestBtn) abortTestBtn.disabled = true;
+        }
+      });
+    }
+
+    if (abortTestBtn) {
+      abortTestBtn.addEventListener('click', () => {
+        RunnerEngine.abort();
+        abortTestBtn.disabled = true;
+        if (startTestBtn) startTestBtn.disabled = false;
+        const progressDiv = document.getElementById('test-progress');
+        if (progressDiv) progressDiv.innerHTML = '<span class="badge danger">Abortado</span>';
+        NotificationsManager.warning('Teste abortado');
+      });
+    }
+
+    // --- Novo Usuário ---
+    const newUserBtn = document.getElementById('btn-new-user');
+    if (newUserBtn) {
+      newUserBtn.addEventListener('click', () => _showCreateUserModal());
+    }
+
+    // --- Toggle / Excluir Usuário ---
+    document.querySelectorAll('[data-action="toggle-user"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const userId = button.dataset.userId;
+        const user = UsersManager.getById(userId);
+        if (!user) return;
+        await UsersManager.setActive(userId, !user.ativo);
+        NotificationsManager.success(`Usuário ${user.ativo ? 'desativado' : 'ativado'}`);
+        _renderMainContent('users');
+        _attachEventListeners();
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete-user"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const userId = button.dataset.userId;
+        ModalManager.confirm({
+          title: 'Excluir usuário',
+          body: '<p>Deseja realmente excluir este usuário? A ação não pode ser desfeita.</p>',
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            UsersManager.delete_(userId);
+            NotificationsManager.warning('Usuário excluído');
+            _renderMainContent('users');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
   };
 
   const _renderHeader = () => {
@@ -1042,6 +1445,7 @@ const Renderer = (() => {
     state.currentUser = user;
     const app = document.getElementById('app');
     if (!app) return;
+    app.classList.remove('auth-mode');
 
     app.innerHTML = `
       <div class="app-sidebar" id="app-sidebar"></div>

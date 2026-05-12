@@ -113,19 +113,7 @@ const ScenarioExecutor = (() => {
       timeout: 120
     };
 
-    return new Promise((resolve) => {
-      const stepResults = [];
-
-      RunnerEngine.on('request-complete', (result) => {
-        stepResults.push(result);
-      });
-
-      RunnerEngine.on('batch-complete', () => {
-        resolve(stepResults);
-      });
-
-      RunnerEngine.executeBatch([profile], config);
-    });
+    return RunnerEngine.executeBatch([profile], config);
   };
 
   /**

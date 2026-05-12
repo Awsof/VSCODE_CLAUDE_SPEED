@@ -45,6 +45,7 @@ const RunnerEngine = (() => {
   const executeRequest = async (profile, attendanceNumber, payload, config) => {
     const t0 = performance.now();
     const requestId = ++state.currentSequence;
+    let timeoutHandle;
 
     try {
       // Validar URL
@@ -52,39 +53,35 @@ const RunnerEngine = (() => {
         throw new Error(`URL inválida: ${profile.url}`);
       }
 
-      // Preparar headers
-      const headers = new Headers();
-      headers.set('Content-Type', ConfigEngine.get('SOAP_CONTENT_TYPE'));
-      if (profile.soapAction) {
-        headers.set('SOAPAction', profile.soapAction);
-      }
+      // Preparar headers SOAP como objeto simples (para serializar ao proxy)
+      const headersObj = { 'Content-Type': ConfigEngine.get('SOAP_CONTENT_TYPE') };
+      if (profile.soapAction) headersObj['SOAPAction'] = profile.soapAction;
 
-      // Criar AbortController para timeout
-      const controller = new AbortController();
       const timeoutMs = (config.timeout || ConfigEngine.get('DEFAULT_REQUEST_TIMEOUT')) * 1000;
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
 
-      // Executar fetch
-      const response = await fetch(profile.url, {
+      // AbortController para o fetch ao proxy (com margem extra sobre o timeout SOAP)
+      const controller = new AbortController();
+      timeoutHandle = setTimeout(() => controller.abort(), timeoutMs + 10000);
+
+      // Roteamento via proxy (evita CORS direto ao endpoint SOAP)
+      const proxyResponse = await fetch('/api/proxy', {
         method: 'POST',
-        headers,
-        body: payload,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUrl: profile.url, headers: headersObj, payload, timeoutMs }),
         signal: controller.signal
       });
 
       clearTimeout(timeoutHandle);
 
-      const responseBody = await response.text();
-      const duration = Math.round(performance.now() - t0);
+      const proxyResult = await proxyResponse.json();
+      const responseBody = proxyResult.responseBody;
+      const duration = proxyResult.duration ?? Math.round(performance.now() - t0);
+      const success = proxyResult.success;
+      const statusCode = proxyResult.statusCode;
 
-      // Analisar resposta
-      const hasFault = XMLEngine.hasFault(responseBody);
-      const faultString = XMLEngine.extractFaultString(responseBody);
-      const success = response.ok && !hasFault;
-      
       // Extrair numero de atendimento do DB (se configurado)
       const xmlTag = profile.xmlTag || 'diag:NumeroAtendimentoApoiado';
-      const numDB = XMLEngine.extractTag(responseBody, xmlTag, null);
+      const numDB = responseBody ? XMLEngine.extractTag(responseBody, xmlTag, null) : null;
 
       const result = {
         requestId,
@@ -94,10 +91,10 @@ const RunnerEngine = (() => {
         attendanceNumber,
         numDB,
         duration,
-        statusCode: response.status,
+        statusCode,
         success,
-        isTimeout: false,
-        errorDetail: success ? null : (faultString || `HTTP ${response.status}`),
+        isTimeout: proxyResult.isTimeout || false,
+        errorDetail: success ? null : (proxyResult.errorDetail || `HTTP ${statusCode}`),
         requestPayload: payload,
         responseBody,
         timestamp: new Date().toISOString()

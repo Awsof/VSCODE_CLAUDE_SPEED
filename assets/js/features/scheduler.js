@@ -44,8 +44,15 @@ const ScheduleRunner = (() => {
     state.isRunning = true;
     _emit('runner-start', {});
 
+    // Executar imediatamente ao iniciar para não esperar o próximo intervalo
+    Promise.resolve(_checkAndExecuteDue()).catch(error => {
+      console.error('[ScheduleRunner] Erro na primeira checagem de agendamentos:', error);
+    });
+
     state.intervalHandle = setInterval(() => {
-      _checkAndExecuteDue();
+      Promise.resolve(_checkAndExecuteDue()).catch(error => {
+        console.error('[ScheduleRunner] Erro ao checar agendamentos:', error);
+      });
     }, state.checkInterval);
 
     console.log('[ScheduleRunner] Iniciado com intervalo de', state.checkInterval, 'ms');
@@ -102,19 +109,7 @@ const ScheduleRunner = (() => {
           .map(id => ProfilesManager.getById(id))
           .filter(p => p !== null);
 
-        results = await new Promise((resolve) => {
-          const batchResults = [];
-
-          RunnerEngine.on('request-complete', (result) => {
-            batchResults.push(result);
-          });
-
-          RunnerEngine.on('batch-complete', () => {
-            resolve(batchResults);
-          });
-
-          RunnerEngine.executeBatch(profiles, schedule.config);
-        });
+        results = await RunnerEngine.executeBatch(profiles, schedule.config);
       }
 
       // Salvar resultados

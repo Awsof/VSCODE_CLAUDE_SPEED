@@ -257,6 +257,18 @@
   color: var(--text-muted);
 }
 
+.card-list-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.button.small {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+}
+
 .table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border);
