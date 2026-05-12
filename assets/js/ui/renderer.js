@@ -314,6 +314,7 @@ const Renderer = (() => {
                 <th>Seq</th>
                 <th>Endpoint</th>
                 <th>Status</th>
+                <th>Detalhe</th>
                 <th>Duração</th>
                 <th>Executado Em</th>
               </tr>
@@ -324,10 +325,11 @@ const Renderer = (() => {
                   <td>${result.seq}</td>
                   <td>${result.endpoint}</td>
                   <td>${result.success ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
+                  <td style="max-width:260px;white-space:normal;font-size:0.82em;color:var(--text-muted);">${result.errorDetail ? result.errorDetail.slice(0, 120) : '—'}</td>
                   <td>${result.duration} ms</td>
                   <td>${new Date(result.executadoEm).toLocaleString('pt-BR')}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="5" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
             </tbody>
           </table>
         </div>

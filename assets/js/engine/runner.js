@@ -73,11 +73,26 @@ const RunnerEngine = (() => {
 
       clearTimeout(timeoutHandle);
 
+      if (!proxyResponse.ok) {
+        const errBody = await proxyResponse.json().catch(() => ({}));
+        throw new Error(`Proxy HTTP ${proxyResponse.status}: ${errBody.error || proxyResponse.statusText}`);
+      }
+
       const proxyResult = await proxyResponse.json();
       const responseBody = proxyResult.responseBody;
       const duration = proxyResult.duration ?? Math.round(performance.now() - t0);
       const success = proxyResult.success;
       const statusCode = proxyResult.statusCode;
+
+      if (!success) {
+        console.warn('[RunnerEngine] Falha reportada pelo proxy:', {
+          targetUrl: profile.url,
+          statusCode,
+          isTimeout: proxyResult.isTimeout,
+          errorDetail: proxyResult.errorDetail,
+          responseSnippet: responseBody ? responseBody.slice(0, 300) : null
+        });
+      }
 
       // Extrair numero de atendimento do DB (se configurado)
       const xmlTag = profile.xmlTag || 'diag:NumeroAtendimentoApoiado';
