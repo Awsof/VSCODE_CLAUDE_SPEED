@@ -375,6 +375,7 @@ const Renderer = (() => {
                 <th>Duração</th>
                 <th>Executado Em</th>
                 <th>Request</th>
+                <th>Response</th>
               </tr>
             </thead>
             <tbody>
@@ -387,8 +388,9 @@ const Renderer = (() => {
                   <td>${result.duration} ms</td>
                   <td>${new Date(result.executadoEm).toLocaleString('pt-BR')}</td>
                   <td>${result.requestPayload ? `<button class="button secondary small" data-action="view-request" data-seq="${result.seq}">Ver XML</button>` : '—'}</td>
+                  <td>${result.responseBody ? `<button class="button secondary small" data-action="view-response" data-seq="${result.seq}">Ver Response</button>` : '—'}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="7" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -646,8 +648,10 @@ const Renderer = (() => {
     const attendanceNumber = UtilsEngine.generateAttendanceNumber(profile.codigo);
     const filledPayload = ProfilesManager.fillPayload(profileId, {
       NUM_ATENDIMENTO: attendanceNumber,
-      LOGIN: profile.login || '',
-      SENHA: profile.senha || ''
+      LOGIN: profile.codigoApoiado || '',
+      SENHA: profile.codigoSenha || '',
+      CODIGO_APOIADO: profile.codigoApoiado || '',
+      CODIGO_SENHA: profile.codigoSenha || ''
     });
 
     const result = await RunnerEngine.executeRequest(profile, attendanceNumber, filledPayload, {
@@ -1423,6 +1427,26 @@ const Renderer = (() => {
           .replace(/>/g, '&gt;');
         ModalManager.open({
           title: `XML Request — Seq #${seq} · ${result.endpoint}`,
+          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:440px;margin:0;">${escaped}</pre>`,
+          confirmText: 'Fechar',
+          cancelText: 'Cancelar'
+        });
+      });
+    });
+
+    document.querySelectorAll('[data-action="view-response"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const seq = button.dataset.seq;
+        const result = ResultsManager.list().find(r => String(r.seq) === String(seq));
+        if (!result || !result.responseBody) {
+          return NotificationsManager.info('Response não disponível para este resultado');
+        }
+        const escaped = result.responseBody
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        ModalManager.open({
+          title: `XML Response — Seq #${seq} · ${result.endpoint}`,
           body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:440px;margin:0;">${escaped}</pre>`,
           confirmText: 'Fechar',
           cancelText: 'Cancelar'
