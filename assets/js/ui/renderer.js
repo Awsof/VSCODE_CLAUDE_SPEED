@@ -179,12 +179,12 @@ const Renderer = (() => {
               <div class="card-list-item-title">${profile.nome}</div>
               <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${groups.find(g => g.id === profile.groupId)?.nome || 'Sem grupo'}</div>
               <div class="card-list-item-meta">URL: ${profile.url}</div>
-              <div class="card-list-item-meta" style="font-size:0.8em;color:${profile.soapAction ? 'var(--text-muted)' : '#DC2626'};">
-                SOAPAction: ${profile.soapAction ? profile.soapAction : '⚠ não configurado'}
+              <div class="card-list-item-meta" style="font-size:0.8em;">
+                Código Apoiado: ${profile.codigoApoiado ? `<span style="color:var(--text-muted)">${profile.codigoApoiado}</span>` : '<span style="color:#DC2626">⚠ não configurado</span>'}
               </div>
               <div class="card-list-item-actions">
                 <button class="button secondary small" type="button" data-action="edit-profile" data-profile-id="${profile.id}">Editar</button>
-                <button class="button primary small" type="button" data-action="run-profile" data-profile-id="${profile.id}">Enviar agora</button>
+                <button class="button danger small" type="button" data-action="delete-profile" data-profile-id="${profile.id}">Excluir</button>
               </div>
             </div>
           `).join('') : '<div class="empty-state">Nenhum perfil cadastrado ainda.</div>'}
@@ -374,6 +374,7 @@ const Renderer = (() => {
                 <th>Detalhe</th>
                 <th>Duração</th>
                 <th>Executado Em</th>
+                <th>Request</th>
               </tr>
             </thead>
             <tbody>
@@ -385,8 +386,9 @@ const Renderer = (() => {
                   <td style="max-width:260px;white-space:normal;font-size:0.82em;color:var(--text-muted);">${result.errorDetail ? result.errorDetail.slice(0, 120) : '—'}</td>
                   <td>${result.duration} ms</td>
                   <td>${new Date(result.executadoEm).toLocaleString('pt-BR')}</td>
+                  <td>${result.requestPayload ? `<button class="button secondary small" data-action="view-request" data-seq="${result.seq}">Ver XML</button>` : '—'}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="7" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -717,41 +719,37 @@ const Renderer = (() => {
             Código
             <input id="profile-code" type="text" placeholder="Ex: PRD" value="${v('codigo')}" />
           </label>
-          <label class="field">
+          <label class="field" style="grid-column: 1 / -1;">
             URL SOAP
             <input id="profile-url" type="url" placeholder="https://..." value="${v('url')}" />
+          </label>
+          <label class="field">
+            Código Apoiado
+            <input id="profile-codigo-apoiado" type="text" placeholder="Ex: 12588" value="${v('codigoApoiado')}" />
+            <small class="field-note">Substitui {{CODIGO_APOIADO}} no template XML do método.</small>
+          </label>
+          <label class="field">
+            Senha de Integração
+            <input id="profile-codigo-senha" type="text" placeholder="Ex: hovaho23" value="${v('codigoSenha')}" />
+            <small class="field-note">Substitui {{CODIGO_SENHA}} no template XML do método.</small>
           </label>
           <label class="field">
             Versão
             <input id="profile-version" type="text" placeholder="1.0" value="${v('version', '1.0')}" />
           </label>
           <label class="field">
+            Cor
+            <input id="profile-color" type="color" value="${v('cor', '#0F9B94')}" />
+          </label>
+          <label class="field" style="grid-column: 1 / -1;">
             Grupo
             <select id="profile-group-id">
               <option value="">Nenhum grupo</option>
               ${groups.map(g => `<option value="${g.id}" ${profile?.groupId === g.id ? 'selected' : ''}>${g.nome}</option>`).join('')}
             </select>
           </label>
-          <label class="field">
-            SOAPAction (header HTTP)
-            <input id="profile-soapaction" type="text" placeholder="Ex: http://tempuri.org/IService/OperacaoNome" value="${v('soapAction')}" />
-            <small class="field-note">Obrigatório para serviços WCF. Consulte o WSDL do serviço (&lt;soap:operation soapAction=...&gt;).</small>
-          </label>
-          <label class="field">
-            Tag XML de retorno (numDB)
-            <input id="profile-xml-tag" type="text" placeholder="diag:NumeroAtendimentoApoiado" value="${v('xmlTag', 'diag:NumeroAtendimentoApoiado')}" />
-            <small class="field-note">Elemento XML do qual extrair o número retornado pelo serviço.</small>
-          </label>
-          <label class="field">
-            Cor
-            <input id="profile-color" type="color" value="${v('cor', '#0F9B94')}" />
-          </label>
-          <label class="field" style="grid-column: 1 / -1;">
-            Payload SOAP
-            <textarea id="profile-payload" rows="8" placeholder="Cole aqui todo o envelope SOAP, incluindo soapenv:Envelope e soapenv:Body">${v('payloadTemplate')}</textarea>
-            <small class="field-note">Cole o request SOAP completo aqui. Exemplo: todo o conteúdo entre &lt;soapenv:Envelope&gt; e &lt;/soapenv:Envelope&gt;.</small>
-          </label>
         </div>
+        <p style="margin-top:14px;font-size:0.8rem;color:var(--text-muted);">O payload XML e SOAPAction são configurados na aba <strong>Métodos SOAP</strong>.</p>
       </form>
     `;
   };
@@ -796,44 +794,28 @@ const Renderer = (() => {
     const url = document.getElementById('profile-url')?.value.trim();
     const version = document.getElementById('profile-version')?.value.trim() || '1.0';
     const groupId = document.getElementById('profile-group-id')?.value || null;
-    const soapAction = document.getElementById('profile-soapaction')?.value.trim() || null;
-    const xmlTag = document.getElementById('profile-xml-tag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
+    const codigoApoiado = document.getElementById('profile-codigo-apoiado')?.value.trim() || null;
+    const codigoSenha = document.getElementById('profile-codigo-senha')?.value.trim() || null;
     const color = document.getElementById('profile-color')?.value || '#0F9B94';
-    const payload = document.getElementById('profile-payload')?.value.trim();
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
     const createdBy = currentUser?.usuario || 'admin';
 
     if (!name) return NotificationsManager.danger('O nome do perfil é obrigatório');
     if (!code) return NotificationsManager.danger('O código do perfil é obrigatório');
     if (!url) return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
-    if (!payload) return NotificationsManager.danger('O Payload SOAP é obrigatório');
 
     let result;
     if (profileId) {
       result = ProfilesManager.update(profileId, {
-        nome: name,
-        codigo: code,
-        url,
-        version,
-        payloadTemplate: payload,
-        xmlTag,
-        soapAction,
-        cor: color,
-        groupId
+        nome: name, codigo: code, url, version,
+        codigoApoiado, codigoSenha, cor: color, groupId
       });
       if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
       NotificationsManager.success('Perfil atualizado com sucesso');
     } else {
       result = ProfilesManager.create({
-        nome: name,
-        codigo: code,
-        url,
-        version,
-        payloadTemplate: payload,
-        xmlTag,
-        soapAction,
-        cor: color,
-        groupId,
+        nome: name, codigo: code, url, version,
+        codigoApoiado, codigoSenha, cor: color, groupId,
         criadoPor: createdBy
       });
       if (!result) return NotificationsManager.danger('Falha ao criar perfil. Verifique se já não existe um perfil igual.');
@@ -1408,17 +1390,43 @@ const Renderer = (() => {
       });
     });
 
-    document.querySelectorAll('[data-action="run-profile"]').forEach(button => {
+    document.querySelectorAll('[data-action="delete-profile"]').forEach(button => {
       button.addEventListener('click', () => {
         const profileId = button.dataset.profileId;
-        if (!profileId) return;
-        const profileSelect = document.getElementById('test-profile-select');
-        if (profileSelect) {
-          profileSelect.value = profileId;
-          document.getElementById('test-method-select')?.focus();
-          document.querySelector('#test-method-select')?.closest('section')?.scrollIntoView({ behavior: 'smooth' });
+        const profile = ProfilesManager.getById(profileId);
+        if (!profile) return;
+        ModalManager.confirm({
+          title: 'Excluir perfil',
+          body: `<p>Deseja excluir o perfil <strong>${profile.nome}</strong>? A ação não pode ser desfeita.</p>`,
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            ProfilesManager.delete_(profileId);
+            NotificationsManager.warning('Perfil excluído');
+            _renderMainContent('profiles');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
+
+    document.querySelectorAll('[data-action="view-request"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const seq = button.dataset.seq;
+        const result = ResultsManager.list().find(r => String(r.seq) === String(seq));
+        if (!result || !result.requestPayload) {
+          return NotificationsManager.info('Request não disponível para este resultado');
         }
-        NotificationsManager.info('Perfil selecionado no painel. Escolha um método SOAP e clique em Iniciar Teste.');
+        const escaped = result.requestPayload
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        ModalManager.open({
+          title: `XML Request — Seq #${seq} · ${result.endpoint}`,
+          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:440px;margin:0;">${escaped}</pre>`,
+          confirmText: 'Fechar',
+          cancelText: 'Cancelar'
+        });
       });
     });
 

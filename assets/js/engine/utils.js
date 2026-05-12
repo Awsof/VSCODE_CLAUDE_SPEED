@@ -6,21 +6,12 @@ const UtilsEngine = (() => {
    * Gerar número de atendimento único
    * Formato: {CODIGO}{YYYYMMDD}{SEQ:003}
    */
-  const generateAttendanceNumber = (profileCode) => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const date = `${year}${month}${day}`;
-    
-    // Obter sequência do dia
-    const storageKey = `stp_counter_${profileCode}_${date}`;
-    const currentSeq = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    const nextSeq = currentSeq + 1;
-    localStorage.setItem(storageKey, String(nextSeq));
-    
-    const seq = String(nextSeq).padStart(3, '0');
-    return `${profileCode.toUpperCase()}${date}${seq}`;
+  const generateAttendanceNumber = () => {
+    const key = 'stp_attendance_seq';
+    const current = parseInt(localStorage.getItem(key) || '100000', 10);
+    const next = current + 1;
+    localStorage.setItem(key, String(next));
+    return String(next);
   };
 
   /**

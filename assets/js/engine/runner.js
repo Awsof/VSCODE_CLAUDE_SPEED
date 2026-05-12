@@ -204,6 +204,8 @@ const RunnerEngine = (() => {
           filledPayload = filledPayload.replace(/{{NUM_ATENDIMENTO}}/g, attendanceNumber);
           filledPayload = filledPayload.replace(/{{LOGIN}}/g, profile.login || '');
           filledPayload = filledPayload.replace(/{{SENHA}}/g, profile.senha || '');
+          filledPayload = filledPayload.replace(/{{CODIGO_APOIADO}}/g, profile.codigoApoiado || '');
+          filledPayload = filledPayload.replace(/{{CODIGO_SENHA}}/g, profile.codigoSenha || '');
 
           // Executar requisição
           const promise = executeRequest(profile, attendanceNumber, filledPayload, config)

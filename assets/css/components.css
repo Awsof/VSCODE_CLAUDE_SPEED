@@ -324,8 +324,10 @@
   gap: 16px;
 }
 
-.form-grid label {
-  display: contents;
+.form-grid > label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .field input,
