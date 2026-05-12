@@ -16,12 +16,11 @@ const LoginScreenManager = (() => {
         <div style="background:#FFFFFF;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);padding:40px;max-width:400px;width:100%;">
           
           <!-- Logo -->
-          <div class="login-brand">
-            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" />
-            <div>
-              <div class="login-brand-title">Speed Teste DBSync</div>
-              <div class="login-brand-subtitle">Monitor de Performance</div>
-            </div>
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:28px;gap:6px;">
+            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:56px;margin-bottom:6px;" />
+            <div style="font-size:1.1rem;font-weight:800;color:#003761;letter-spacing:0.04em;">Grupo DB</div>
+            <div style="font-size:0.95rem;font-weight:600;color:#1F2937;">Speed Teste DBSync</div>
+            <div style="font-size:0.78rem;color:#6B7280;letter-spacing:0.1em;">Monitor de Performance</div>
           </div>
 
           <!-- Formulário -->
@@ -100,12 +99,11 @@ const LoginScreenManager = (() => {
         <div style="background:#FFFFFF;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:40px;max-width:450px;width:100%;">
           
           <!-- Logo -->
-          <div class="login-brand">
-            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" />
-            <div>
-              <div class="login-brand-title">Speed Teste DBSync</div>
-              <div class="login-brand-subtitle">Configure a conta do primeiro administrador para começar</div>
-            </div>
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:24px;gap:6px;">
+            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:56px;margin-bottom:6px;" />
+            <div style="font-size:1.1rem;font-weight:800;color:#003761;letter-spacing:0.04em;">Grupo DB</div>
+            <div style="font-size:0.95rem;font-weight:600;color:#1F2937;">Speed Teste DBSync</div>
+            <div style="font-size:0.78rem;color:#6B7280;letter-spacing:0.1em;">Configure a conta administradora</div>
           </div>
 
           <!-- Formulário -->

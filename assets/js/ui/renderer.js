@@ -1523,6 +1523,18 @@ const Renderer = (() => {
           soapAction: method.soapAction
         };
 
+        // Avisar se placeholders essenciais não tiverem valor no perfil
+        const warnings = [];
+        if (method.payloadTemplate.includes('{{CODIGO_APOIADO}}') && !profile.codigoApoiado) {
+          warnings.push('Código Apoiado não configurado no perfil');
+        }
+        if (method.payloadTemplate.includes('{{CODIGO_SENHA}}') && !profile.codigoSenha) {
+          warnings.push('Senha de Integração não configurada no perfil');
+        }
+        if (warnings.length > 0) {
+          NotificationsManager.warning(`Atenção: ${warnings.join(' · ')}. Edite o perfil para adicionar esses valores.`);
+        }
+
         const requests = Number(document.getElementById('test-requests')?.value || 1);
         const concurrency = Number(document.getElementById('test-concurrency')?.value || 1);
         const timeout = Number(document.getElementById('test-timeout')?.value || 120);
