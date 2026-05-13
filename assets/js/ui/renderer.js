@@ -8,22 +8,8 @@ const Renderer = (() => {
     chartRefs: {}
   };
 
-  const _buildHeader = (user) => {
-    const countdown = SessionManager.getTimeRemaining();
-    const timeLabel = countdown > 0 ? `${countdown} min restantes` : 'Sessão expirada';
-    return `
-      <div class="app-logo">
-        <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" />
-        <div>
-          <div class="app-logo-title">Speed Teste DBSync</div>
-          <div class="app-logo-meta">${user.usuario}</div>
-        </div>
-      </div>
-      <div class="button-bar">
-        <div class="badge info">${timeLabel}</div>
-        <button class="button secondary" id="btn-logout">Sair</button>
-      </div>
-    `;
+  const _buildHeader = () => {
+    return ``;
   };
 
   const _renderPage = (tabId) => {
@@ -171,23 +157,30 @@ const Renderer = (() => {
             <h2 class="section-title">Testes</h2>
             <p class="section-subtitle">Gerencie seus endpoints SOAP e templates de payload.</p>
           </div>
-          <button class="button primary" type="button" id="btn-new-profile">Novo Perfil</button>
+          <button class="button primary" type="button" id="btn-new-profile">Novo Teste</button>
         </div>
         <div class="card-list">
-          ${profiles.length ? profiles.map(profile => `
-            <div class="card-list-item">
-              <div class="card-list-item-title">${profile.nome}</div>
-              <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${groups.find(g => g.id === profile.groupId)?.nome || 'Sem grupo'}</div>
-              <div class="card-list-item-meta">URL: ${profile.url}</div>
-              <div class="card-list-item-meta" style="font-size:0.8em;">
-                Código Apoiado: ${profile.codigoApoiado ? `<span style="color:var(--text-muted)">${profile.codigoApoiado}</span>` : '<span style="color:#DC2626">⚠ não configurado</span>'}
+          ${profiles.length ? profiles.map(profile => {
+            const group = groups.find(g => g.id === profile.groupId);
+            const displayColor = profile.cor || group?.cor || '#0F9B94';
+            return `
+              <div class="card-list-item" style="border-left:4px solid ${displayColor};">
+                <div class="card-list-item-title" style="display:flex;align-items:center;gap:10px;">
+                  <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${displayColor};flex-shrink:0;"></span>
+                  ${profile.nome}
+                </div>
+                <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${group?.nome || 'Sem grupo'}</div>
+                <div class="card-list-item-meta">URL: ${profile.url}</div>
+                <div class="card-list-item-meta" style="font-size:0.8em;">
+                  Código Apoiado: ${profile.codigoApoiado ? `<span style="color:var(--text-muted)">${profile.codigoApoiado}</span>` : '<span style="color:#DC2626">⚠ não configurado</span>'}
+                </div>
+                <div class="card-list-item-actions">
+                  <button class="button secondary small" type="button" data-action="edit-profile" data-profile-id="${profile.id}">Editar</button>
+                  <button class="button danger small" type="button" data-action="delete-profile" data-profile-id="${profile.id}">Excluir</button>
+                </div>
               </div>
-              <div class="card-list-item-actions">
-                <button class="button secondary small" type="button" data-action="edit-profile" data-profile-id="${profile.id}">Editar</button>
-                <button class="button danger small" type="button" data-action="delete-profile" data-profile-id="${profile.id}">Excluir</button>
-              </div>
-            </div>
-          `).join('') : '<div class="empty-state">Nenhum perfil cadastrado ainda.</div>'}
+            `;
+          }).join('') : '<div class="empty-state">Nenhum perfil cadastrado ainda.</div>'}
         </div>
       </section>
       <section class="section-card fade-in-up">
@@ -245,7 +238,7 @@ const Renderer = (() => {
             <div class="chart-canvas"><canvas id="chart-manual-timeline"></canvas></div>
           </div>
           <div class="chart-card">
-            <div class="chart-title">B — Frequência de envios por minuto</div>
+            <div class="chart-title">B — Distribuição de tempo de resposta (ms)</div>
             <div class="chart-canvas"><canvas id="chart-manual-freq"></canvas></div>
           </div>
         </div>
@@ -255,6 +248,7 @@ const Renderer = (() => {
 
   const _renderGroups = () => {
     const groups = GroupsManager.list();
+    const profiles = ProfilesManager.list();
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -265,12 +259,22 @@ const Renderer = (() => {
           <button class="button primary" type="button" id="btn-new-group">Novo Grupo</button>
         </div>
         <div class="card-list">
-          ${groups.length ? groups.map(group => `
-            <div class="card-list-item">
-              <div class="card-list-item-title">${group.nome}</div>
-              <div class="card-list-item-meta">${group.descricao || 'Sem descrição'}</div>
-            </div>
-          `).join('') : '<div class="empty-state">Nenhum grupo cadastrado ainda.</div>'}
+          ${groups.length ? groups.map(group => {
+            const memberCount = profiles.filter(p => p.groupId === group.id).length;
+            return `
+              <div class="card-list-item" style="border-left:4px solid ${group.cor || '#0F9B94'};">
+                <div class="card-list-item-title" style="display:flex;align-items:center;gap:10px;">
+                  <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${group.cor || '#0F9B94'};flex-shrink:0;"></span>
+                  ${group.nome}
+                </div>
+                <div class="card-list-item-meta">${group.descricao || 'Sem descrição'} · ${memberCount} perfil(is)</div>
+                <div class="card-list-item-actions">
+                  <button class="button secondary small" type="button" data-action="edit-group" data-group-id="${group.id}">Editar</button>
+                  <button class="button danger small" type="button" data-action="delete-group" data-group-id="${group.id}">Excluir</button>
+                </div>
+              </div>
+            `;
+          }).join('') : '<div class="empty-state">Nenhum grupo cadastrado ainda.</div>'}
         </div>
       </section>
     `;
@@ -329,6 +333,21 @@ const Renderer = (() => {
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
+            <h3 class="section-title">Performance dos Agendamentos</h3>
+            <p class="section-subtitle">Tempo de resposta por agendamento — linha sólida = execuções, linha tracejada = mediana.</p>
+          </div>
+          <div class="button-bar">
+            <button class="button secondary small" id="chart-filter-hour">Hora</button>
+            <button class="button primary small" id="chart-filter-day">Dia</button>
+            <button class="button secondary small" id="chart-filter-week">Semana</button>
+            <button class="button secondary small" id="chart-filter-month">Mês</button>
+          </div>
+        </div>
+        <div class="chart-canvas" style="height:340px;"><canvas id="chart-schedule-perf"></canvas></div>
+      </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
             <h3 class="section-title">Agendamentos cadastrados</h3>
           </div>
         </div>
@@ -343,7 +362,6 @@ const Renderer = (() => {
                 <th>Próxima</th>
                 <th>Status</th>
                 <th>Ações</th>
-                <th>Ação rápida</th>
               </tr>
             </thead>
             <tbody>
@@ -351,63 +369,95 @@ const Renderer = (() => {
                 <tr>
                   <td>${schedule.nome}</td>
                   <td>${schedule.cenarioId ? 'Cenário' : 'Perfis'}</td>
-                  <td>${schedule.agendamento?.dataInicio || 'N/A'} → ${schedule.agendamento?.dataFim || 'N/A'}</td>
+                  <td>${schedule.agendamento?.dataInicio || 'Recorrente'} → ${schedule.agendamento?.dataFim || ''}</td>
                   <td>${schedule.agendamento?.frequenciaMinutos || 'N/A'} min</td>
                   <td>${schedule.proximaExecucao ? new Date(schedule.proximaExecucao).toLocaleString('pt-BR') : 'N/A'}</td>
                   <td>${schedule.ativo ? '<span class="badge success">Ativo</span>' : '<span class="badge danger">Inativo</span>'}</td>
-                  <td>
+                  <td style="white-space:nowrap;">
+                    <button class="button secondary small" type="button" data-action="edit-schedule" data-schedule-id="${schedule.id}">Editar</button>
                     <button class="button secondary small" type="button" data-action="toggle-schedule" data-schedule-id="${schedule.id}">${schedule.ativo ? 'Desativar' : 'Ativar'}</button>
+                    <button class="button primary small" type="button" data-action="run-schedule" data-schedule-id="${schedule.id}">Executar</button>
                     <button class="button danger small" type="button" data-action="delete-schedule" data-schedule-id="${schedule.id}">Excluir</button>
                   </td>
-                  <td>
-                    <button class="button primary small" type="button" data-action="run-schedule" data-schedule-id="${schedule.id}">Executar agora</button>
-                  </td>
                 </tr>
-              `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum agendamento configurado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="7" class="empty-state">Nenhum agendamento configurado ainda.</td></tr>'}
             </tbody>
           </table>
         </div>
       </section>
-      <section class="section-card fade-in-up">
-        <div class="section-header">
-          <div>
-            <h3 class="section-title">Performance dos Agendamentos</h3>
-            <p class="section-subtitle">Tempo de resposta das execuções agendadas.</p>
-          </div>
-          <div class="button-bar">
-            <button class="button secondary small" id="chart-filter-hour">Hora</button>
-            <button class="button primary small" id="chart-filter-day">Dia</button>
-            <button class="button secondary small" id="chart-filter-week">Semana</button>
-            <button class="button secondary small" id="chart-filter-month">Mês</button>
-          </div>
-        </div>
-        <div class="chart-canvas" style="height:260px;"><canvas id="chart-schedule-perf"></canvas></div>
-      </section>
     `;
   };
 
-  const _renderResults = () => {
-    const results = ResultsManager.list().slice(-10).reverse();
+  const _renderResults = (filters = {}) => {
+    const profiles = ProfilesManager.list();
+    const allResults = ResultsManager.list().slice(-500).reverse();
+
+    // Aplicar filtros
+    let filtered = allResults;
+    if (filters.profileId) filtered = filtered.filter(r => r.profileId === filters.profileId);
+    if (filters.tipo === 'manual') filtered = filtered.filter(r => r.origem === 'manual');
+    if (filters.tipo === 'agendado') filtered = filtered.filter(r => r.origem === 'scheduled');
+    if (filters.status === 'ok') filtered = filtered.filter(r => r.success);
+    if (filters.status === 'erro') filtered = filtered.filter(r => !r.success);
+    if (filters.de) filtered = filtered.filter(r => new Date(r.executadoEm) >= new Date(filters.de));
+    if (filters.ate) filtered = filtered.filter(r => new Date(r.executadoEm) <= new Date(filters.ate + 'T23:59:59'));
+
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
             <h2 class="section-title">Resultados</h2>
-            <p class="section-subtitle">Histórico recente das últimas execuções.</p>
+            <p class="section-subtitle">Histórico das execuções com filtros. Exibindo ${filtered.length} de ${allResults.length} registros.</p>
           </div>
           <div class="button-bar">
             <button class="button secondary" type="button" id="btn-export-results">Exportar</button>
             <button class="button danger" type="button" id="btn-clear-results">Limpar Registros</button>
           </div>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0;align-items:flex-end;">
+          <label class="field" style="flex:1;min-width:140px;margin:0;">
+            Perfil
+            <select id="filter-profile">
+              <option value="">Todos</option>
+              ${profiles.map(p => `<option value="${p.id}" ${filters.profileId === p.id ? 'selected' : ''}>${p.nome}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field" style="min-width:120px;margin:0;">
+            Tipo
+            <select id="filter-tipo">
+              <option value="" ${!filters.tipo ? 'selected' : ''}>Todos</option>
+              <option value="manual" ${filters.tipo === 'manual' ? 'selected' : ''}>Manual</option>
+              <option value="agendado" ${filters.tipo === 'agendado' ? 'selected' : ''}>Agendado</option>
+            </select>
+          </label>
+          <label class="field" style="min-width:120px;margin:0;">
+            Status
+            <select id="filter-status">
+              <option value="" ${!filters.status ? 'selected' : ''}>Todos</option>
+              <option value="ok" ${filters.status === 'ok' ? 'selected' : ''}>OK</option>
+              <option value="erro" ${filters.status === 'erro' ? 'selected' : ''}>Erro</option>
+            </select>
+          </label>
+          <label class="field" style="min-width:130px;margin:0;">
+            De
+            <input id="filter-de" type="date" value="${filters.de || ''}" />
+          </label>
+          <label class="field" style="min-width:130px;margin:0;">
+            Até
+            <input id="filter-ate" type="date" value="${filters.ate || ''}" />
+          </label>
+          <button class="button primary" type="button" id="btn-apply-filters" style="height:36px;">Filtrar</button>
+          <button class="button secondary" type="button" id="btn-clear-filters" style="height:36px;">Limpar</button>
+        </div>
         <div class="table-wrapper">
           <table class="table">
             <thead>
               <tr>
                 <th>Seq</th>
+                <th>Tipo</th>
                 <th>Endpoint</th>
                 <th>Status</th>
-                <th>Detalhe</th>
+                <th>TAG</th>
                 <th>Duração</th>
                 <th>Executado Em</th>
                 <th>Request</th>
@@ -415,18 +465,19 @@ const Renderer = (() => {
               </tr>
             </thead>
             <tbody>
-              ${results.length ? results.map(result => `
+              ${filtered.length ? filtered.map(result => `
                 <tr>
                   <td>${result.seq}</td>
+                  <td>${result.origem === 'scheduled' ? '<span class="badge info">Agend.</span>' : '<span class="badge secondary" style="color:var(--text-muted);">Manual</span>'}</td>
                   <td>${result.endpoint}</td>
                   <td>${result.success ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
-                  <td style="max-width:260px;white-space:normal;font-size:0.82em;color:var(--text-muted);">${result.errorDetail ? result.errorDetail.slice(0, 120) : '—'}</td>
+                  <td style="font-size:0.82em;color:var(--text-muted);">${result.numAtendimentoDB || '—'}</td>
                   <td>${result.duration} ms</td>
                   <td>${new Date(result.executadoEm).toLocaleString('pt-BR')}</td>
-                  <td>${result.requestPayload ? `<button class="button secondary small" data-action="view-request" data-seq="${result.seq}">Ver XML</button>` : '—'}</td>
-                  <td>${result.responseBody ? `<button class="button secondary small" data-action="view-response" data-seq="${result.seq}">Ver Response</button>` : '—'}</td>
+                  <td>${result.requestPayload ? `<button class="button secondary small" data-action="view-request" data-seq="${result.seq}">XML</button>` : '—'}</td>
+                  <td>${result.responseBody ? `<button class="button secondary small" data-action="view-response" data-seq="${result.seq}">Response</button>` : '—'}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum resultado registrado ainda.</td></tr>'}
+              `).join('') : '<tr><td colspan="9" class="empty-state">Nenhum resultado encontrado com os filtros aplicados.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -492,124 +543,150 @@ const Renderer = (() => {
     `;
   };
 
-  const _buildScheduleModalBody = () => {
+  const _buildScheduleModalBody = (schedule = null) => {
     const profiles = ProfilesManager.list();
     const scenarios = ScenariosManager.list();
     const methods = MethodsManager.list();
+    const ag = schedule?.agendamento || {};
+    const cfg = schedule?.config || {};
+    const selectedProfileIds = schedule?.profileIds || [];
+    const selectedDays = ag.diasSemana || ['dom','seg','ter','qua','qui','sex','sab'];
+    const modoRecorrente = !ag.dataInicio;
+
+    const v = (val, fallback) => (val !== undefined && val !== null && val !== '') ? val : fallback;
+
     return `
-      <form id="schedule-creation-form">
-        <div class="form-grid">
-          <label>
+      <form id="schedule-creation-form" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;">
+          <label class="field" style="grid-column:1/-1;">
             Nome do agendamento
-            <input id="schedule-name" type="text" placeholder="Ex: Verificação diária" />
+            <input id="schedule-name" type="text" placeholder="Ex: Verificação diária" value="${v(schedule?.nome, '')}" />
           </label>
-          <label>
+          <label class="field" style="grid-column:1/-1;">
             Descrição
-            <input id="schedule-description" type="text" placeholder="Breve descrição" />
+            <input id="schedule-description" type="text" placeholder="Breve descrição" value="${v(schedule?.descricao, '')}" />
           </label>
-          <label>
+          <label class="field">
             Tipo de execução
             <select id="schedule-target-type">
-              <option value="profiles">Perfis</option>
-              <option value="scenario">Cenário</option>
+              <option value="profiles" ${!schedule?.cenarioId ? 'selected' : ''}>Perfis</option>
+              <option value="scenario" ${schedule?.cenarioId ? 'selected' : ''}>Cenário</option>
             </select>
           </label>
-          <label>
-            Cenário
-            <select id="schedule-scenario-id">
-              <option value="">Selecione um cenário</option>
-              ${scenarios.map(s => `<option value="${s.id}">${s.nome}</option>`).join('')}
-            </select>
-          </label>
-          <label id="schedule-method-label">
+          <label class="field" id="schedule-method-label">
             Método SOAP
             <select id="schedule-method-id">
               <option value="">Selecione um método</option>
-              ${methods.map(m => `<option value="${m.id}">${m.nome}</option>`).join('')}
+              ${methods.map(m => `<option value="${m.id}" ${cfg.methodId === m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}
             </select>
           </label>
-          <label id="schedule-profiles-label">
-            Perfis selecionados
-            <select id="schedule-profile-ids" multiple size="4">
-              ${profiles.map(profile => `<option value="${profile.id}">${profile.nome}</option>`).join('')}
+          <label class="field" id="schedule-scenario-label">
+            Cenário
+            <select id="schedule-scenario-id">
+              <option value="">Selecione um cenário</option>
+              ${scenarios.map(s => `<option value="${s.id}" ${schedule?.cenarioId === s.id ? 'selected' : ''}>${s.nome}</option>`).join('')}
             </select>
           </label>
-          <label>
-            Data de início
-            <input id="schedule-start-date" type="date" />
-          </label>
-          <label>
-            Data fim
-            <input id="schedule-end-date" type="date" />
-          </label>
-          <label>
-            Hora início
-            <input id="schedule-start-time" type="time" value="08:00" />
-          </label>
-          <label>
-            Hora fim
-            <input id="schedule-end-time" type="time" value="18:00" />
-          </label>
-          <label>
-            Frequência (minutos)
-            <input id="schedule-frequency" type="number" min="5" value="60" />
-          </label>
-          <fieldset class="form-group" style="grid-column: 1 / -1;">
-            <legend>Dias da semana</legend>
-            <div class="checkbox-grid">
-              ${['dom','seg','ter','qua','qui','sex','sab'].map(day => `
-                <label><input type="checkbox" name="schedule-days" value="${day}" checked /> ${day.toUpperCase()}</label>
-              `).join('')}
-            </div>
-          </fieldset>
-          <label>
-            Requisições por perfil
-            <input id="schedule-requests" type="number" min="1" value="1" />
-          </label>
-          <label>
-            Concorrência
-            <input id="schedule-concurrency" type="number" min="1" value="1" />
-          </label>
-          <label>
-            Timeout (segundos)
-            <input id="schedule-timeout" type="number" min="10" value="120" />
+          <label class="field" id="schedule-profiles-label" style="grid-column:1/-1;">
+            Perfis selecionados (Ctrl+clique para múltiplos)
+            <select id="schedule-profile-ids" multiple size="4" style="height:auto;">
+              ${profiles.map(p => `<option value="${p.id}" ${selectedProfileIds.includes(p.id) ? 'selected' : ''}>${p.nome}</option>`).join('')}
+            </select>
           </label>
         </div>
-        <p class="field-help">Selecione ao menos um perfil. Caso escolha um cenário, ele será executado para os perfis selecionados.</p>
+
+        <fieldset style="border:1px solid var(--border,#E5E7EB);border-radius:8px;padding:12px;">
+          <legend style="font-size:0.82rem;font-weight:700;padding:0 6px;color:var(--text-muted);">Modo de agendamento</legend>
+          <div style="display:flex;gap:20px;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="schedule-mode" value="periodo" ${!modoRecorrente ? 'checked' : ''} id="sched-mode-periodo" />
+              Por período (data início/fim)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="schedule-mode" value="recorrente" ${modoRecorrente ? 'checked' : ''} id="sched-mode-recorrente" />
+              Recorrente (dias da semana)
+            </label>
+          </div>
+          <div id="sched-block-periodo" style="${modoRecorrente ? 'display:none;' : ''}display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label class="field">
+              Data de início
+              <input id="schedule-start-date" type="date" value="${v(ag.dataInicio, '')}" />
+            </label>
+            <label class="field">
+              Data fim
+              <input id="schedule-end-date" type="date" value="${v(ag.dataFim, '')}" />
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+            <label class="field">
+              Hora início
+              <input id="schedule-start-time" type="time" value="${v(ag.horaInicio, '08:00')}" />
+            </label>
+            <label class="field">
+              Hora fim
+              <input id="schedule-end-time" type="time" value="${v(ag.horaFim, '18:00')}" />
+            </label>
+            <label class="field">
+              Frequência (min)
+              <input id="schedule-frequency" type="number" min="5" value="${v(ag.frequenciaMinutos, 60)}" />
+            </label>
+          </div>
+          <div style="margin-top:10px;">
+            <div style="font-size:0.82rem;font-weight:600;margin-bottom:6px;">Dias da semana</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${['dom','seg','ter','qua','qui','sex','sab'].map(day => `
+                <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;">
+                  <input type="checkbox" name="schedule-days" value="${day}" ${selectedDays.includes(day) ? 'checked' : ''} />
+                  ${day.toUpperCase()}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <label class="field">
+            Requisições por perfil
+            <input id="schedule-requests" type="number" min="1" value="${v(cfg.requestsPerProfile, 1)}" />
+          </label>
+          <label class="field">
+            Concorrência
+            <input id="schedule-concurrency" type="number" min="1" value="${v(cfg.concurrency, 1)}" />
+          </label>
+          <label class="field">
+            Timeout (segundos)
+            <input id="schedule-timeout" type="number" min="10" value="${v(cfg.timeout, 120)}" />
+          </label>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">Selecione ao menos um perfil. No modo recorrente o agendamento executa indefinidamente nos dias/horários selecionados.</p>
       </form>
     `;
   };
 
-  const _showCreateScheduleModal = () => {
-    ModalManager.open({
-      title: 'Criar Agendamento',
-      body: _buildScheduleModalBody(),
-      confirmText: 'Salvar',
-      cancelText: 'Cancelar'
-    });
-
+  const _attachScheduleModalListeners = (scheduleId = null) => {
     const confirmButton = document.getElementById('stp-modal-root-confirm');
     if (confirmButton) {
       confirmButton.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopImmediatePropagation();
-        _submitScheduleForm();
+        _submitScheduleForm(scheduleId);
       }, true);
     }
 
     const targetType = document.getElementById('schedule-target-type');
-    const scenarioField = document.getElementById('schedule-scenario-id');
+    const scenarioLabel = document.getElementById('schedule-scenario-label');
     const profilesLabel = document.getElementById('schedule-profiles-label');
     const methodLabel = document.getElementById('schedule-method-label');
 
     const updateTargetFields = () => {
+      if (!targetType) return;
       if (targetType.value === 'scenario') {
-        scenarioField.parentElement.style.display = 'block';
-        profilesLabel.style.display = 'block';
+        if (scenarioLabel) scenarioLabel.style.display = 'block';
+        if (profilesLabel) profilesLabel.style.display = 'block';
         if (methodLabel) methodLabel.style.display = 'none';
       } else {
-        scenarioField.parentElement.style.display = 'none';
-        profilesLabel.style.display = 'block';
+        if (scenarioLabel) scenarioLabel.style.display = 'none';
+        if (profilesLabel) profilesLabel.style.display = 'block';
         if (methodLabel) methodLabel.style.display = 'block';
       }
     };
@@ -618,19 +695,58 @@ const Renderer = (() => {
       targetType.addEventListener('change', updateTargetFields);
       updateTargetFields();
     }
+
+    // Toggle visibilidade do bloco de datas
+    const radioPeriodo = document.getElementById('sched-mode-periodo');
+    const radioRecorrente = document.getElementById('sched-mode-recorrente');
+    const blocoPeriodo = document.getElementById('sched-block-periodo');
+
+    const updateModeFields = () => {
+      const isRecorrente = radioRecorrente?.checked;
+      if (blocoPeriodo) blocoPeriodo.style.display = isRecorrente ? 'none' : 'grid';
+    };
+
+    if (radioPeriodo) radioPeriodo.addEventListener('change', updateModeFields);
+    if (radioRecorrente) radioRecorrente.addEventListener('change', updateModeFields);
+    updateModeFields();
   };
 
-  const _submitScheduleForm = () => {
+  const _showCreateScheduleModal = () => {
+    ModalManager.open({
+      title: 'Criar Agendamento',
+      body: _buildScheduleModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar',
+      width: '680px'
+    });
+    _attachScheduleModalListeners(null);
+  };
+
+  const _showEditScheduleModal = (scheduleId) => {
+    const schedule = SchedulerManager.getById(scheduleId);
+    if (!schedule) return NotificationsManager.danger('Agendamento não encontrado');
+    ModalManager.open({
+      title: 'Editar Agendamento',
+      body: _buildScheduleModalBody(schedule),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar',
+      width: '680px'
+    });
+    _attachScheduleModalListeners(scheduleId);
+  };
+
+  const _submitScheduleForm = (scheduleId = null) => {
     const name = document.getElementById('schedule-name')?.value.trim();
     const description = document.getElementById('schedule-description')?.value.trim();
     const targetType = document.getElementById('schedule-target-type')?.value;
     const scenarioId = document.getElementById('schedule-scenario-id')?.value || null;
     const methodId = document.getElementById('schedule-method-id')?.value || null;
     const profileIds = Array.from(document.getElementById('schedule-profile-ids')?.selectedOptions || []).map(option => option.value);
-    const startDate = document.getElementById('schedule-start-date')?.value;
-    const endDate = document.getElementById('schedule-end-date')?.value;
-    const startTime = document.getElementById('schedule-start-time')?.value || '00:00';
-    const endTime = document.getElementById('schedule-end-time')?.value || '23:59';
+    const isRecorrente = document.getElementById('sched-mode-recorrente')?.checked;
+    const startDate = isRecorrente ? null : (document.getElementById('schedule-start-date')?.value || null);
+    const endDate = isRecorrente ? null : (document.getElementById('schedule-end-date')?.value || null);
+    const startTime = document.getElementById('schedule-start-time')?.value || '08:00';
+    const endTime = document.getElementById('schedule-end-time')?.value || '18:00';
     const frequency = Number(document.getElementById('schedule-frequency')?.value || 60);
     const requestsPerProfile = Number(document.getElementById('schedule-requests')?.value || 1);
     const concurrency = Number(document.getElementById('schedule-concurrency')?.value || 1);
@@ -653,42 +769,39 @@ const Renderer = (() => {
       return NotificationsManager.danger('Selecione ao menos um perfil para o agendamento');
     }
 
-    if (!startDate || !endDate) {
-      return NotificationsManager.danger('Período de início e fim é obrigatório');
+    if (!isRecorrente) {
+      if (!startDate || !endDate) {
+        return NotificationsManager.danger('Período de início e fim é obrigatório');
+      }
+      if (new Date(startDate) > new Date(endDate)) {
+        return NotificationsManager.danger('A data de início não pode ser posterior à data de fim');
+      }
     }
 
-    if (new Date(startDate) > new Date(endDate)) {
-      return NotificationsManager.danger('A data de início não pode ser posterior à data de fim');
-    }
+    const data = {
+      nome: name,
+      descricao: description,
+      cenarioId: targetType === 'scenario' ? scenarioId : null,
+      profileIds,
+      config: { requestsPerProfile, concurrency, timeout, methodId: targetType !== 'scenario' ? methodId : null },
+      agendamento: { dataInicio: startDate, dataFim: endDate, horaInicio: startTime, horaFim: endTime, frequenciaMinutos: frequency, diasSemana: days },
+      ativo: true
+    };
 
     try {
-      SchedulerManager.create({
-        nome: name,
-        descricao: description,
-        cenarioId: targetType === 'scenario' ? scenarioId : null,
-        profileIds,
-        config: {
-          requestsPerProfile,
-          concurrency,
-          timeout,
-          methodId: targetType !== 'scenario' ? methodId : null
-        },
-        agendamento: {
-          dataInicio: startDate,
-          dataFim: endDate,
-          horaInicio: startTime,
-          horaFim: endTime,
-          frequenciaMinutos: frequency,
-          diasSemana: days
-        },
-        ativo: true
-      });
-      ModalManager.close();
-      NotificationsManager.success('Agendamento criado com sucesso');
+      if (scheduleId) {
+        SchedulerManager.update(scheduleId, data);
+        ModalManager.close();
+        NotificationsManager.success('Agendamento atualizado com sucesso');
+      } else {
+        SchedulerManager.create(data);
+        ModalManager.close();
+        NotificationsManager.success('Agendamento criado com sucesso');
+      }
       _renderMainContent('schedules');
       _attachEventListeners();
     } catch (error) {
-      NotificationsManager.danger(error.message || 'Falha ao criar agendamento');
+      NotificationsManager.danger(error.message || 'Falha ao salvar agendamento');
     }
   };
 
@@ -813,7 +926,7 @@ const Renderer = (() => {
 
   const _showCreateProfileModal = () => {
     ModalManager.open({
-      title: 'Criar Novo Perfil',
+      title: 'Criar Novo Teste',
       body: _buildProfileModalBody(),
       confirmText: 'Salvar',
       cancelText: 'Cancelar'
@@ -981,21 +1094,22 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
-  const _buildGroupModalBody = () => {
+  const _buildGroupModalBody = (group = null) => {
+    const v = (field, fallback = '') => group ? (group[field] ?? fallback) : fallback;
     return `
       <form id="group-creation-form">
         <div class="form-grid">
           <label class="field">
             Nome do grupo
-            <input id="group-name" type="text" placeholder="Ex: Produção" />
+            <input id="group-name" type="text" placeholder="Ex: Produção" value="${v('nome')}" />
           </label>
           <label class="field">
             Descrição
-            <input id="group-description" type="text" placeholder="Ex: Endpoints de produção" />
+            <input id="group-description" type="text" placeholder="Ex: Endpoints de produção" value="${v('descricao')}" />
           </label>
           <label class="field">
             Cor
-            <input id="group-color" type="color" value="#0F9B94" />
+            <input id="group-color" type="color" value="${v('cor', '#0F9B94')}" />
           </label>
         </div>
       </form>
@@ -1007,20 +1121,36 @@ const Renderer = (() => {
       title: 'Criar Novo Grupo',
       body: _buildGroupModalBody(),
       confirmText: 'Salvar',
-      cancelText: 'Cancelar',
-      onConfirm: _submitGroupForm
+      cancelText: 'Cancelar'
     });
-
     const confirmButton = document.getElementById('stp-modal-root-confirm');
     if (confirmButton) {
       confirmButton.onclick = (event) => {
         event.preventDefault();
-        _submitGroupForm();
+        _submitGroupForm(null);
       };
     }
   };
 
-  const _submitGroupForm = () => {
+  const _showEditGroupModal = (groupId) => {
+    const group = GroupsManager.getById(groupId);
+    if (!group) return NotificationsManager.danger('Grupo não encontrado');
+    ModalManager.open({
+      title: 'Editar Grupo',
+      body: _buildGroupModalBody(group),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitGroupForm(groupId);
+      };
+    }
+  };
+
+  const _submitGroupForm = (groupId = null) => {
     const name = document.getElementById('group-name')?.value.trim();
     const description = document.getElementById('group-description')?.value.trim();
     const color = document.getElementById('group-color')?.value || '#0F9B94';
@@ -1031,19 +1161,18 @@ const Renderer = (() => {
       return NotificationsManager.danger('Nome do grupo é obrigatório');
     }
 
-    const group = GroupsManager.create({
-      nome: name,
-      descricao: description,
-      cor: color,
-      criadoPor: createdBy
-    });
-
-    if (!group) {
-      return NotificationsManager.danger('Falha ao criar grupo. Verifique se já não existe um grupo com este nome.');
+    if (groupId) {
+      const updated = GroupsManager.update(groupId, { nome: name, descricao: description, cor: color });
+      if (!updated) return NotificationsManager.danger('Falha ao atualizar grupo.');
+      ModalManager.close();
+      NotificationsManager.success('Grupo atualizado com sucesso');
+    } else {
+      const group = GroupsManager.create({ nome: name, descricao: description, cor: color, criadoPor: createdBy });
+      if (!group) return NotificationsManager.danger('Falha ao criar grupo. Verifique se já não existe um grupo com este nome.');
+      ModalManager.close();
+      NotificationsManager.success('Grupo criado com sucesso');
     }
 
-    ModalManager.close();
-    NotificationsManager.success('Grupo criado com sucesso');
     _renderMainContent('groups');
     _attachEventListeners();
   };
@@ -1251,6 +1380,36 @@ const Renderer = (() => {
 
   const _renderSettings = () => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
+    const allResults = ResultsManager.list();
+    const allUsers = UsersManager.list();
+
+    // Agrupar resultados por userId
+    const byUser = {};
+    allResults.forEach(r => {
+      const uid = r.executadoPor || 'desconhecido';
+      if (!byUser[uid]) byUser[uid] = { total: 0, sucesso: 0, falha: 0, ultima: null };
+      byUser[uid].total++;
+      if (r.success) byUser[uid].sucesso++;
+      else byUser[uid].falha++;
+      if (!byUser[uid].ultima || new Date(r.executadoEm) > new Date(byUser[uid].ultima)) {
+        byUser[uid].ultima = r.executadoEm;
+      }
+    });
+
+    const logRows = Object.entries(byUser).map(([uid, data]) => {
+      const u = allUsers.find(u => u.id === uid);
+      const nomeUsuario = u ? u.usuario : uid;
+      return `
+        <tr>
+          <td>${nomeUsuario}</td>
+          <td>${data.total}</td>
+          <td><span class="badge success">${data.sucesso}</span></td>
+          <td><span class="badge danger">${data.falha}</span></td>
+          <td>${data.ultima ? new Date(data.ultima).toLocaleString('pt-BR') : '—'}</td>
+        </tr>
+      `;
+    });
+
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -1263,7 +1422,31 @@ const Renderer = (() => {
           <div class="stat-card"><div class="stat-label">Usuário</div><div class="stat-value">${user.usuario}</div></div>
           <div class="stat-card"><div class="stat-label">Nível</div><div class="stat-value">${RBACManager.getLevelDescription(user.nivel)}</div></div>
           <div class="stat-card"><div class="stat-label">Sessão restante</div><div class="stat-value">${SessionManager.getTimeRemaining()} min</div></div>
-          <div class="stat-card"><div class="stat-label">Perfis</div><div class="stat-value">${ProfilesManager.count()}</div></div>
+          <div class="stat-card"><div class="stat-label">Total de resultados</div><div class="stat-value">${allResults.length}</div></div>
+        </div>
+      </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Log de Testes por Usuário</h3>
+            <p class="section-subtitle">Resumo de execuções agrupadas por usuário responsável.</p>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Usuário</th>
+                <th>Total</th>
+                <th>Sucesso</th>
+                <th>Falha</th>
+                <th>Última execução</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${logRows.length ? logRows.join('') : '<tr><td colspan="5" class="empty-state">Nenhuma execução registrada.</td></tr>'}
+            </tbody>
+          </table>
         </div>
       </section>
     `;
@@ -1276,25 +1459,43 @@ const Renderer = (() => {
     }
   };
 
+  const _getLastTestResults = () => {
+    const allManual = ResultsManager.list()
+      .filter(r => r.origem === 'manual')
+      .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+    if (allManual.length === 0) return [];
+
+    // Identificar o último teste: pegar o resultado mais recente e agrupar com os
+    // que têm o mesmo profileId dentro de uma janela de 5 minutos
+    const last = allManual[allManual.length - 1];
+    const lastTime = new Date(last.executadoEm).getTime();
+    const WINDOW_MS = 5 * 60 * 1000;
+
+    return allManual.filter(r =>
+      r.profileId === last.profileId &&
+      (lastTime - new Date(r.executadoEm).getTime()) <= WINDOW_MS
+    );
+  };
+
   const _initializeManualCharts = () => {
-    const manualResults = ResultsManager.list().filter(r => r.origem === 'manual').slice(-100);
+    const lastTestResults = _getLastTestResults();
 
     if (document.getElementById('chart-manual-timeline')) {
       _resetChart('manual-timeline');
-      if (manualResults.length > 0) {
+      if (lastTestResults.length > 0) {
         state.chartRefs['manual-timeline'] = new Chart(
           document.getElementById('chart-manual-timeline').getContext('2d'), {
             type: 'line',
             data: {
-              labels: manualResults.map((_, i) => `#${i + 1}`),
+              labels: lastTestResults.map((_, i) => `#${i + 1}`),
               datasets: [{
                 label: 'Tempo (ms)',
-                data: manualResults.map(r => r.duration),
+                data: lastTestResults.map(r => r.duration),
                 borderColor: 'rgba(15, 155, 148, 0.9)',
                 backgroundColor: 'rgba(15, 155, 148, 0.1)',
                 fill: true,
                 tension: 0.3,
-                pointRadius: manualResults.length > 50 ? 2 : 4
+                pointRadius: lastTestResults.length > 50 ? 2 : 4
               }]
             },
             options: {
@@ -1313,22 +1514,40 @@ const Renderer = (() => {
 
     if (document.getElementById('chart-manual-freq')) {
       _resetChart('manual-freq');
-      if (manualResults.length > 0) {
-        const buckets = {};
-        manualResults.forEach(r => {
-          const d = new Date(r.executadoEm);
-          const key = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-          buckets[key] = (buckets[key] || 0) + 1;
-        });
-        const labels = Object.keys(buckets).sort();
+      if (lastTestResults.length > 0) {
+        // Criar buckets adaptativos de duração
+        const durations = lastTestResults.map(r => r.duration || 0);
+        const maxDur = Math.max(...durations);
+
+        // Definir limites de bucket conforme o range de dados
+        let bucketBounds;
+        if (maxDur <= 1000) {
+          bucketBounds = [0, 100, 200, 300, 500, 750, 1000];
+        } else if (maxDur <= 5000) {
+          bucketBounds = [0, 500, 1000, 2000, 3000, 5000];
+        } else if (maxDur <= 15000) {
+          bucketBounds = [0, 1000, 3000, 5000, 8000, 12000, 15000];
+        } else {
+          bucketBounds = [0, 2000, 5000, 10000, 20000, 30000, maxDur + 1];
+        }
+
+        const bucketLabels = [];
+        const bucketCounts = [];
+        for (let i = 0; i < bucketBounds.length - 1; i++) {
+          const lo = bucketBounds[i];
+          const hi = bucketBounds[i + 1];
+          bucketLabels.push(`${lo}–${hi}ms`);
+          bucketCounts.push(durations.filter(d => d >= lo && d < hi).length);
+        }
+
         state.chartRefs['manual-freq'] = new Chart(
           document.getElementById('chart-manual-freq').getContext('2d'), {
             type: 'bar',
             data: {
-              labels,
+              labels: bucketLabels,
               datasets: [{
-                label: 'Envios',
-                data: labels.map(k => buckets[k]),
+                label: 'Requisições',
+                data: bucketCounts,
                 backgroundColor: 'rgba(196, 155, 60, 0.65)',
                 borderColor: 'transparent'
               }]
@@ -1336,8 +1555,15 @@ const Renderer = (() => {
             options: {
               plugins: { legend: { display: false } },
               scales: {
-                y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
-                x: { ticks: { color: 'var(--text-muted)' } }
+                y: {
+                  beginAtZero: true,
+                  ticks: { color: 'var(--text-muted)', stepSize: 1 },
+                  title: { display: true, text: 'Qtd requisições', color: 'var(--text-muted)' }
+                },
+                x: {
+                  ticks: { color: 'var(--text-muted)' },
+                  title: { display: true, text: 'Faixa de tempo', color: 'var(--text-muted)' }
+                }
               },
               responsive: true,
               maintainAspectRatio: false
@@ -1346,6 +1572,22 @@ const Renderer = (() => {
         );
       }
     }
+  };
+
+  const _CHART_PALETTE = [
+    { line: 'rgba(15,155,148,0.9)',   fill: 'rgba(15,155,148,0.08)'   },
+    { line: 'rgba(196,155,60,0.9)',   fill: 'rgba(196,155,60,0.08)'   },
+    { line: 'rgba(59,130,246,0.9)',   fill: 'rgba(59,130,246,0.08)'   },
+    { line: 'rgba(220,38,38,0.9)',    fill: 'rgba(220,38,38,0.08)'    },
+    { line: 'rgba(139,92,246,0.9)',   fill: 'rgba(139,92,246,0.08)'   },
+    { line: 'rgba(236,72,153,0.9)',   fill: 'rgba(236,72,153,0.08)'   },
+  ];
+
+  const _median = (arr) => {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
   };
 
   const _initializeScheduleChart = (filter = 'day') => {
@@ -1358,7 +1600,7 @@ const Renderer = (() => {
     else if (filter === 'month') cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
     else                         cutoff = new Date(now - 24 * 60 * 60 * 1000);
 
-    const results = ResultsManager.list()
+    const allResults = ResultsManager.list()
       .filter(r => r.origem === 'scheduled' && new Date(r.executadoEm) >= cutoff)
       .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
 
@@ -1370,27 +1612,66 @@ const Renderer = (() => {
       return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2,'0')}h`;
     };
 
+    // Agrupar por scheduleId
+    const scheduleIds = [...new Set(allResults.map(r => r.scheduleId).filter(Boolean))];
+    const schedules = SchedulerManager.list();
+
+    // Construir conjunto global de labels (eixo X unificado por timestamp)
+    const allLabels = [...new Set(allResults.map(r => formatLabel(r.executadoEm)))];
+
+    const datasets = [];
+    scheduleIds.forEach((sid, idx) => {
+      const color = _CHART_PALETTE[idx % _CHART_PALETTE.length];
+      const scheduleResults = allResults.filter(r => r.scheduleId === sid);
+      const schedule = schedules.find(s => s.id === sid);
+      const scheduleName = schedule ? schedule.nome : `Agendamento ${idx + 1}`;
+      const durations = scheduleResults.map(r => r.duration);
+      const medianVal = _median(durations);
+
+      // Dataset principal — linha de duração
+      datasets.push({
+        label: scheduleName,
+        data: scheduleResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+        borderColor: color.line,
+        backgroundColor: color.fill,
+        fill: false,
+        tension: 0.3,
+        pointRadius: scheduleResults.length > 50 ? 2 : 4,
+        borderWidth: 2
+      });
+
+      // Dataset mediana — linha tracejada
+      datasets.push({
+        label: `${scheduleName} (mediana: ${medianVal}ms)`,
+        data: scheduleResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+        borderColor: color.line,
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        borderDash: [6, 4]
+      });
+    });
+
     _resetChart('schedule-perf');
     state.chartRefs['schedule-perf'] = new Chart(
       document.getElementById('chart-schedule-perf').getContext('2d'), {
         type: 'line',
-        data: {
-          labels: results.map(r => formatLabel(r.executadoEm)),
-          datasets: [{
-            label: 'Tempo (ms)',
-            data: results.map(r => r.duration),
-            borderColor: 'rgba(15, 155, 148, 0.9)',
-            backgroundColor: 'rgba(15, 155, 148, 0.1)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: results.length > 50 ? 2 : 4
-          }]
-        },
+        data: { datasets },
         options: {
+          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
           plugins: {
-            legend: { display: false },
+            legend: {
+              display: scheduleIds.length > 0,
+              labels: {
+                color: 'var(--text-muted)',
+                font: { size: 11 },
+                filter: (item) => !item.text.includes('mediana:') || scheduleIds.length <= 3
+              }
+            },
             title: {
-              display: results.length === 0,
+              display: allResults.length === 0,
               text: 'Nenhuma execução agendada no período selecionado',
               color: 'var(--text-muted)'
             }
@@ -1516,6 +1797,36 @@ const Renderer = (() => {
       });
     }
 
+    // Filtros de resultados
+    const applyFiltersBtn = document.getElementById('btn-apply-filters');
+    if (applyFiltersBtn) {
+      applyFiltersBtn.addEventListener('click', () => {
+        const filters = {
+          profileId: document.getElementById('filter-profile')?.value || '',
+          tipo: document.getElementById('filter-tipo')?.value || '',
+          status: document.getElementById('filter-status')?.value || '',
+          de: document.getElementById('filter-de')?.value || '',
+          ate: document.getElementById('filter-ate')?.value || ''
+        };
+        const main = document.getElementById('app-content');
+        if (main) {
+          main.innerHTML = _renderResults(filters);
+          _attachEventListeners();
+        }
+      });
+    }
+
+    const clearFiltersBtn = document.getElementById('btn-clear-filters');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', () => {
+        const main = document.getElementById('app-content');
+        if (main) {
+          main.innerHTML = _renderResults({});
+          _attachEventListeners();
+        }
+      });
+    }
+
     const exportButton = document.getElementById('btn-export-results');
     if (exportButton) {
       exportButton.addEventListener('click', () => {
@@ -1621,6 +1932,32 @@ const Renderer = (() => {
       });
     });
 
+    document.querySelectorAll('[data-action="edit-group"]').forEach(button => {
+      button.addEventListener('click', () => {
+        _showEditGroupModal(button.dataset.groupId);
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete-group"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const groupId = button.dataset.groupId;
+        const group = GroupsManager.getById(groupId);
+        if (!group) return;
+        ModalManager.confirm({
+          title: 'Excluir grupo',
+          body: `<p>Deseja excluir o grupo <strong>${group.nome}</strong>? Os perfis vinculados perderão o grupo.</p>`,
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            GroupsManager.delete_(groupId);
+            NotificationsManager.warning('Grupo excluído');
+            _renderMainContent('groups');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
+
     document.querySelectorAll('[data-action="view-request"]').forEach(button => {
       button.addEventListener('click', () => {
         const seq = button.dataset.seq;
@@ -1634,9 +1971,10 @@ const Renderer = (() => {
           .replace(/>/g, '&gt;');
         ModalManager.open({
           title: `XML Request — Seq #${seq} · ${result.endpoint}`,
-          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:440px;margin:0;">${escaped}</pre>`,
+          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:520px;margin:0;">${escaped}</pre>`,
           confirmText: 'Fechar',
-          cancelText: 'Cancelar'
+          cancelText: 'Cancelar',
+          width: '760px'
         });
       });
     });
@@ -1654,9 +1992,10 @@ const Renderer = (() => {
           .replace(/>/g, '&gt;');
         ModalManager.open({
           title: `XML Response — Seq #${seq} · ${result.endpoint}`,
-          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:440px;margin:0;">${escaped}</pre>`,
+          body: `<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.78em;font-family:monospace;background:var(--surface-alt);padding:16px;border-radius:8px;overflow-y:auto;max-height:520px;margin:0;">${escaped}</pre>`,
           confirmText: 'Fechar',
-          cancelText: 'Cancelar'
+          cancelText: 'Cancelar',
+          width: '760px'
         });
       });
     });
@@ -1678,6 +2017,12 @@ const Renderer = (() => {
           console.error('[Renderer] Erro ao executar cenário manualmente:', error);
           NotificationsManager.danger(error.message || 'Falha na execução manual do cenário');
         }
+      });
+    });
+
+    document.querySelectorAll('[data-action="edit-schedule"]').forEach(button => {
+      button.addEventListener('click', () => {
+        _showEditScheduleModal(button.dataset.scheduleId);
       });
     });
 
@@ -1910,7 +2255,7 @@ const Renderer = (() => {
   const _renderHeader = () => {
     const header = document.getElementById('app-header');
     if (!header) return;
-    header.innerHTML = _buildHeader(state.currentUser);
+    header.innerHTML = _buildHeader();
   };
 
   const _navigate = (tabId) => {

@@ -7,7 +7,6 @@ const SidebarManager = (() => {
     { id: 'methods', label: 'Métodos SOAP', icon: '⚡', permission: 'profiles:list' },
     { id: 'profiles', label: 'Testes', icon: '🧾', permission: 'profiles:list' },
     { id: 'groups', label: 'Grupos', icon: '🗂️', permission: 'groups:list' },
-    { id: 'scenarios', label: 'Cenários', icon: '✅', permission: 'scenarios:list' },
     { id: 'schedules', label: 'Agendamentos', icon: '⏰', permission: 'scheduler:list' },
     { id: 'results', label: 'Resultados', icon: '📊', permission: 'results:list' },
     { id: 'reports', label: 'Relatórios', icon: '📄', permission: 'export:results' },
@@ -20,16 +19,37 @@ const SidebarManager = (() => {
     return RBACManager.canCurrent(item.permission);
   };
 
+  let _timerInterval = null;
+
+  const _updateTimer = () => {
+    const el = document.getElementById('sidebar-session-timer');
+    if (!el) {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+      return;
+    }
+    const remaining = SessionManager.getTimeRemaining();
+    el.textContent = remaining > 0 ? `${remaining} min` : 'Sessão expirada';
+  };
+
   const render = (user, activeId, onNavigate) => {
     const sidebar = document.getElementById('app-sidebar');
     if (!sidebar) return;
 
+    if (_timerInterval) {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+    }
+
     const visibleItems = NAV_ITEMS.filter(_isAllowed);
+    const countdown = SessionManager.getTimeRemaining();
+    const timeLabel = countdown > 0 ? `${countdown} min` : 'Sessão expirada';
+    const role = RBACManager.getLevelDescription(user.nivel);
+
     sidebar.innerHTML = `
       <div class="nav-section">
         <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 22px;">
-          <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" style="height:52px;margin-bottom:10px;" />
-          <div style="font-size:1.05rem;font-weight:800;color:var(--primary-dark);letter-spacing:0.03em;">Grupo DB</div>
+          <img src="assets/logo.svg" alt="Grupo DB" class="app-logo-image" style="height:56px;margin-bottom:8px;" />
           <div style="font-size:0.88rem;font-weight:600;color:var(--text);margin-top:2px;">Speed Teste DBSync</div>
           <div style="font-size:0.75rem;color:var(--text-muted);letter-spacing:0.1em;margin-top:2px;">Monitor de Performance</div>
         </div>
@@ -42,9 +62,13 @@ const SidebarManager = (() => {
         `).join('')}
       </div>
       <div class="sidebar-footer">
-        <div class="section-card" style="padding:16px;">
+        <div class="section-card" style="padding:12px 16px;">
           <div style="font-size:0.92rem;font-weight:700;color:var(--text);">${user.usuario}</div>
-          <div style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;">${RBACManager.getLevelDescription(user.nivel)}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">${role}</div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="badge info" id="sidebar-session-timer">${timeLabel}</span>
+            <button class="button secondary small" id="btn-logout" type="button">Sair</button>
+          </div>
         </div>
       </div>
     `;
@@ -55,6 +79,8 @@ const SidebarManager = (() => {
         if (typeof onNavigate === 'function') onNavigate(tab);
       });
     });
+
+    _timerInterval = setInterval(_updateTimer, 60000);
   };
 
   return {

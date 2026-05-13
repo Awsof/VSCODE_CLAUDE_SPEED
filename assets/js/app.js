@@ -115,12 +115,25 @@ const AppBootstrap = (() => {
       setTimeout(() => window.location.reload(), 500);
     });
 
+    // Rastrear atividade do usuário para timeout por inatividade (debounce 5s)
+    let _activityDebounce = null;
+    const _onUserActivity = () => {
+      if (_activityDebounce) return;
+      _activityDebounce = setTimeout(() => {
+        SessionManager.updateActivity();
+        _activityDebounce = null;
+      }, 5000);
+    };
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+      document.addEventListener(evt, _onUserActivity, { passive: true });
+    });
+
     // Listener: session timeout warning
     setInterval(() => {
       if (SessionManager.isNearTimeout(5)) {
-        console.warn('[AppBootstrap] Aviso: sessão vence em 5 minutos');
+        console.warn('[AppBootstrap] Aviso: sessão vence em menos de 5 minutos por inatividade');
         if (typeof NotificationsManager !== 'undefined') {
-          NotificationsManager.warning('Sua sessão expira em menos de 5 minutos.');
+          NotificationsManager.warning('Sua sessão expira em menos de 5 minutos por inatividade.');
         }
       }
     }, 60000); // Verificar a cada minuto

@@ -17,8 +17,7 @@ const LoginScreenManager = (() => {
           
           <!-- Logo -->
           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:28px;gap:6px;">
-            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:56px;margin-bottom:6px;" />
-            <div style="font-size:1.1rem;font-weight:800;color:#003761;letter-spacing:0.04em;">Grupo DB</div>
+            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:64px;margin-bottom:6px;" />
             <div style="font-size:0.95rem;font-weight:600;color:#1F2937;">Speed Teste DBSync</div>
             <div style="font-size:0.78rem;color:#6B7280;letter-spacing:0.1em;">Monitor de Performance</div>
           </div>
@@ -100,8 +99,7 @@ const LoginScreenManager = (() => {
           
           <!-- Logo -->
           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:24px;gap:6px;">
-            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:56px;margin-bottom:6px;" />
-            <div style="font-size:1.1rem;font-weight:800;color:#003761;letter-spacing:0.04em;">Grupo DB</div>
+            <img src="assets/logo.svg" alt="Grupo DB" class="login-logo-image" style="height:64px;margin-bottom:6px;" />
             <div style="font-size:0.95rem;font-weight:600;color:#1F2937;">Speed Teste DBSync</div>
             <div style="font-size:0.78rem;color:#6B7280;letter-spacing:0.1em;">Configure a conta administradora</div>
           </div>
@@ -263,32 +261,24 @@ const LoginScreenManager = (() => {
       try {
         const serverLogin = await _tryServerLogin(username, password);
         console.log('[LoginScreenManager] Server login response:', serverLogin);
-        
-        if (serverLogin && (serverLogin.mode === 'env-fallback' || serverLogin.mode === 'test-fallback')) {
-          if (serverLogin.ok) {
-            console.log('[LoginScreenManager] Login via API bem-sucedido');
-            const envUser = {
-              id: 'api-user-' + username,
-              nome: 'Usuário',
-              usuario: username.toLowerCase(),
-              nivel: 'admin'
-            };
-            SessionManager.login(envUser);
-            setTimeout(() => {
-              window.location.href = window.location.pathname;
-            }, 500);
-            return;
-          } else {
-            console.log('[LoginScreenManager] API login falhou:', serverLogin.message);
-            errorDiv.textContent = serverLogin.message || 'Usuário ou senha incorretos';
-            errorDiv.style.display = 'block';
-            loadingDiv.style.display = 'none';
-            submitBtn.disabled = false;
-            return;
-          }
+
+        // Usar resultado da API somente se confirmou ok: true (env vars ou admin/admin)
+        if (serverLogin?.ok === true) {
+          console.log('[LoginScreenManager] Login via API bem-sucedido');
+          const envUser = {
+            id: 'api-user-' + username,
+            nome: 'Usuário',
+            usuario: username.toLowerCase(),
+            nivel: 'admin'
+          };
+          SessionManager.login(envUser);
+          setTimeout(() => {
+            window.location.href = window.location.pathname;
+          }, 500);
+          return;
         }
 
-        // Validar contra UsersManager (que usa localStorage)
+        // Sempre tentar localStorage (usuarios criados no sistema)
         console.log('[LoginScreenManager] Tentando validar contra localStorage');
         const user = await UsersManager.validate(username, password);
 
@@ -296,7 +286,7 @@ const LoginScreenManager = (() => {
           // Login bem-sucedido
           console.log('[LoginScreenManager] Login localStorage bem-sucedido para:', username);
           SessionManager.login(user);
-          
+
           // Redirecionar para app principal
           setTimeout(() => {
             window.location.href = window.location.pathname;

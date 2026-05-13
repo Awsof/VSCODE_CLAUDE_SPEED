@@ -14,7 +14,7 @@
 
 const SessionManager = (() => {
   const SESSION_KEY = 'stp_session';
-  const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8 horas
+  const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inatividade
 
   /**
    * Obter dados da sessão ativa
@@ -27,12 +27,12 @@ const SessionManager = (() => {
 
       const session = JSON.parse(sessionData);
 
-      // Verificar timeout
-      const loginTime = new Date(session.loginAt).getTime();
-      const elapsed = Date.now() - loginTime;
+      // Verificar timeout por inatividade (lastActivity ou loginAt)
+      const lastActive = new Date(session.lastActivity || session.loginAt).getTime();
+      const elapsed = Date.now() - lastActive;
 
       if (elapsed > SESSION_TIMEOUT) {
-        console.warn('[SessionManager] Sessão expirada');
+        console.warn('[SessionManager] Sessão expirada por inatividade');
         logout();
         return null;
       }
@@ -87,11 +87,13 @@ const SessionManager = (() => {
         return false;
       }
 
+      const now = new Date().toISOString();
       const session = {
         userId: user.id,
         usuario: user.usuario,
         nivel: user.nivel,
-        loginAt: new Date().toISOString(),
+        loginAt: now,
+        lastActivity: now,
         token: _generateToken()
       };
 
@@ -156,6 +158,21 @@ const SessionManager = (() => {
   };
 
   /**
+   * Registrar atividade do usuário (renova o timer de inatividade)
+   */
+  const updateActivity = () => {
+    try {
+      const sessionData = sessionStorage.getItem(SESSION_KEY);
+      if (!sessionData) return;
+      const session = JSON.parse(sessionData);
+      session.lastActivity = new Date().toISOString();
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (error) {
+      // silencioso — não bloquear interação do usuário
+    }
+  };
+
+  /**
    * Verificar se a sessão está próxima do timeout
    * @param {number} warningMinutes - Minutos antes do timeout para avisar
    * @returns {boolean}
@@ -164,25 +181,28 @@ const SessionManager = (() => {
     const session = getSession();
     if (!session) return false;
 
-    const loginTime = new Date(session.loginAt).getTime();
-    const elapsed = Date.now() - loginTime;
+    const lastActive = new Date(session.lastActivity || session.loginAt).getTime();
+    const elapsed = Date.now() - lastActive;
     const warningThreshold = SESSION_TIMEOUT - (warningMinutes * 60 * 1000);
 
     return elapsed > warningThreshold;
   };
 
   /**
-   * Obter tempo restante da sessão em minutos
+   * Obter tempo restante da sessão em minutos (baseado em inatividade)
    */
   const getTimeRemaining = () => {
-    const session = getSession();
-    if (!session) return 0;
-
-    const loginTime = new Date(session.loginAt).getTime();
-    const elapsed = Date.now() - loginTime;
-    const remaining = Math.max(0, SESSION_TIMEOUT - elapsed);
-
-    return Math.floor(remaining / 60000); // Retornar em minutos
+    try {
+      const sessionData = sessionStorage.getItem(SESSION_KEY);
+      if (!sessionData) return 0;
+      const session = JSON.parse(sessionData);
+      const lastActive = new Date(session.lastActivity || session.loginAt).getTime();
+      const elapsed = Date.now() - lastActive;
+      const remaining = Math.max(0, SESSION_TIMEOUT - elapsed);
+      return Math.floor(remaining / 60000);
+    } catch {
+      return 0;
+    }
   };
 
   /**
@@ -211,6 +231,7 @@ const SessionManager = (() => {
     login,
     logout,
     refresh,
+    updateActivity,
     isNearTimeout,
     getTimeRemaining,
     getDebugInfo,
