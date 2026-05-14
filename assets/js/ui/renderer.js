@@ -221,7 +221,7 @@ const Renderer = (() => {
               </select>
             </div>
           </label>
-          <div id="exec-method-info" style="grid-column:1/-1;padding:8px 12px;border-radius:6px;background:var(--surface-alt,#F3F4F6);font-size:0.85rem;min-height:32px;display:flex;align-items:center;"></div>
+          <div id="exec-method-info" style="grid-column:1/-1;padding:8px 12px;border-radius:6px;background:var(--surface-alt,#F3F4F6);font-size:0.85rem;display:none;align-items:center;"></div>
           <label class="field">
             Requisições ${limits.maxRequests < 9999 ? `<span style="font-size:0.78em;color:var(--text-muted);">(máx ${limits.maxRequests})</span>` : ''}
             <input id="test-requests" type="number" min="1" max="${limits.maxRequests}" value="1" />
@@ -646,7 +646,7 @@ const Renderer = (() => {
               <option value="groups"   ${targetIsGroup  ? 'selected' : ''}>Grupo</option>
             </select>
           </label>
-          <label class="field" id="schedule-method-label">
+          <label class="field" id="schedule-method-label" style="${targetIsGroup ? 'display:none;' : ''}">
             Método SOAP
             <select id="schedule-method-id">
               <option value="">Selecione um método</option>
@@ -749,15 +749,18 @@ const Renderer = (() => {
     const targetType = document.getElementById('schedule-target-type');
     const groupLabel    = document.getElementById('schedule-group-label');
     const profilesLabel = document.getElementById('schedule-profiles-label');
+    const methodLabel   = document.getElementById('schedule-method-label');
 
     const updateTargetFields = () => {
       if (!targetType) return;
       if (targetType.value === 'groups') {
         if (groupLabel)    groupLabel.style.display    = 'block';
         if (profilesLabel) profilesLabel.style.display = 'none';
+        if (methodLabel)   methodLabel.style.display   = 'none';
       } else {
         if (groupLabel)    groupLabel.style.display    = 'none';
         if (profilesLabel) profilesLabel.style.display = 'block';
+        if (methodLabel)   methodLabel.style.display   = '';
       }
     };
 
@@ -837,7 +840,7 @@ const Renderer = (() => {
       return NotificationsManager.danger('Nome do agendamento é obrigatório');
     }
 
-    if (!methodId) {
+    if (!methodId && targetType !== 'groups') {
       return NotificationsManager.danger('Selecione um método SOAP para o agendamento');
     }
 
@@ -2389,13 +2392,19 @@ const Renderer = (() => {
       if (!info) return;
       const mode = document.querySelector('input[name="exec-mode"]:checked')?.value || 'teste';
       if (mode === 'grupo') {
+        info.style.display = 'flex';
         info.innerHTML = '<span style="color:var(--text-muted);">Cada teste do grupo usará seu próprio método vinculado.</span>';
         return;
       }
       const profileId = document.getElementById('test-profile-select')?.value;
-      if (!profileId) { info.innerHTML = ''; return; }
+      if (!profileId) {
+        info.style.display = 'none';
+        info.innerHTML = '';
+        return;
+      }
       const profile = ProfilesManager.getById(profileId);
       const method = profile?.methodId ? MethodsManager.getById(profile.methodId) : null;
+      info.style.display = 'flex';
       info.innerHTML = method
         ? `Método: <strong>${method.nome}</strong>`
         : '<span style="color:#DC2626;">⚠ Nenhum método vinculado. Edite o teste para configurar.</span>';

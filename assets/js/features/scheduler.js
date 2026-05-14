@@ -105,19 +105,18 @@ const ScheduleRunner = (() => {
         results = await ScenarioExecutor.execute(schedule.cenarioId);
       } else {
         // Executar profiles individuais, mesclando o método SOAP
-        const method = schedule.config.methodId ? MethodsManager.getById(schedule.config.methodId) : null;
-
-        if (!method) {
-          console.error('[ScheduleRunner] Agendamento sem methodId configurado:', schedule.id);
-          SchedulerManager.recordExecution(schedule.id);
-          _emit('schedule-error', { schedule, error: 'Método SOAP não configurado. Edite o agendamento e selecione um método.' });
-          return;
-        }
+        // Método pode vir do agendamento (config.methodId) ou do próprio perfil (profile.methodId)
+        const scheduleMethod = schedule.config.methodId ? MethodsManager.getById(schedule.config.methodId) : null;
 
         const profiles = schedule.profileIds
           .map(id => {
             const profile = ProfilesManager.getById(id);
             if (!profile) return null;
+            const method = scheduleMethod || (profile.methodId ? MethodsManager.getById(profile.methodId) : null);
+            if (!method) {
+              console.warn(`[ScheduleRunner] Perfil "${profile.nome}" sem método configurado — pulado`);
+              return null;
+            }
             return {
               ...profile,
               payloadTemplate: method.payloadTemplate,
@@ -126,6 +125,13 @@ const ScheduleRunner = (() => {
             };
           })
           .filter(p => p !== null);
+
+        if (profiles.length === 0) {
+          console.error('[ScheduleRunner] Nenhum perfil com método configurado:', schedule.id);
+          SchedulerManager.recordExecution(schedule.id);
+          _emit('schedule-error', { schedule, error: 'Nenhum perfil possui método SOAP configurado.' });
+          return;
+        }
 
         results = await RunnerEngine.executeBatch(profiles, schedule.config);
       }
