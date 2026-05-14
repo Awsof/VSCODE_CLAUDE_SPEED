@@ -93,7 +93,7 @@ const Renderer = (() => {
               <div class="chart-title">C — Performance dos Agendamentos</div>
               <div class="chart-canvas"><canvas id="chart-dash-sa"></canvas></div>
             </div>
-            <div class="chart-card fade-in-up">
+            <div class="chart-card fade-in-up" style="height:280px;">
               <div class="chart-title">D — Taxa de Sucesso por Endpoint</div>
               <div class="chart-canvas"><canvas id="chart-dash-sb"></canvas></div>
             </div>
@@ -1602,7 +1602,6 @@ const Renderer = (() => {
     const WINDOW_MS = 5 * 60 * 1000;
 
     return allManual.filter(r =>
-      r.profileId === last.profileId &&
       (lastTime - new Date(r.executadoEm).getTime()) <= WINDOW_MS
     );
   };
