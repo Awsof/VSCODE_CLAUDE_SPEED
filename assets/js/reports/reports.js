@@ -57,19 +57,25 @@ const ReportsManager = (() => {
   };
 
   const getRows = () => {
-    return _getResults().map(result => ({
-      Seq: result.seq,
-      Endpoint: result.endpoint,
-      Status: result.success ? 'OK' : 'ERRO',
-      StatusCode: result.statusCode || 'N/A',
-      DuracaoMs: result.duration,
-      NumAtendimentoDB: result.numAtendimentoDB || 'N/A',
-      Origem: result.origem,
-      ScheduleId: result.scheduleId || 'N/A',
-      CenarioId: result.cenarioId || 'N/A',
-      ExecutadoPor: result.executadoPor,
-      ExecutadoEm: new Date(result.executadoEm).toLocaleString('pt-BR')
-    }));
+    const users = typeof UsersManager !== 'undefined' ? UsersManager.list() : [];
+    const getUser = (id) => users.find(u => u.id === id);
+    return _getResults().map(result => {
+      const u = getUser(result.executadoPor);
+      return {
+        Seq: result.seq,
+        Endpoint: result.endpoint,
+        Status: result.success ? 'OK' : 'ERRO',
+        StatusCode: result.statusCode || 'N/A',
+        DuracaoMs: result.duration,
+        NumAtendimentoDB: result.numAtendimentoDB || 'N/A',
+        UsuarioNome: u ? (u.nome || u.usuario) : (result.executadoPor || '—'),
+        TipoLabel: result.origem === 'scheduled' ? 'Agendado' : 'Manual',
+        Origem: result.origem,
+        ScheduleId: result.scheduleId || 'N/A',
+        ExecutadoPor: result.executadoPor,
+        ExecutadoEm: new Date(result.executadoEm).toLocaleString('pt-BR')
+      };
+    });
   };
 
   const exportExcel = (filename = null) => {

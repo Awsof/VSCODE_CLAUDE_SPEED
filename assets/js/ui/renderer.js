@@ -37,8 +37,7 @@ const Renderer = (() => {
     const stats = ResultsManager.getStats();
     const profileCount = ProfilesManager.count();
     const groupCount = GroupsManager.count();
-    const scenarioCount = ScenariosManager.count();
-    const recent = ResultsManager.list().slice(-5).reverse();
+    const schedulesCount = SchedulerManager.list().length;
 
     return `
       <section class="section-card fade-in-up">
@@ -52,52 +51,53 @@ const Renderer = (() => {
           </div>
         </div>
         <div class="stats-grid">
-          <div class="stat-card"><div class="stat-label">Perfis</div><div class="stat-value">${profileCount}</div></div>
+          <div class="stat-card"><div class="stat-label">Testes</div><div class="stat-value">${profileCount}</div></div>
           <div class="stat-card"><div class="stat-label">Grupos</div><div class="stat-value">${groupCount}</div></div>
-          <div class="stat-card"><div class="stat-label">Cenários</div><div class="stat-value">${scenarioCount}</div></div>
+          <div class="stat-card"><div class="stat-label">Agendamentos</div><div class="stat-value">${schedulesCount}</div></div>
           <div class="stat-card"><div class="stat-label">Resultados</div><div class="stat-value">${stats.total}</div></div>
         </div>
       </section>
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
-            <h3 class="section-title">Últimos Resultados</h3>
-            <p class="section-subtitle">Cinco execuções recentes com status e durações.</p>
+            <h3 class="section-title">Gráficos de Desempenho</h3>
+          </div>
+          <div class="button-bar">
+            <button id="dash-tab-manual"   class="button primary small"   type="button">Manuais</button>
+            <button id="dash-tab-agendado" class="button secondary small" type="button">Agendados</button>
           </div>
         </div>
-        <div class="table-wrapper">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Endpoint</th>
-                <th>Status</th>
-                <th>Duração</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${recent.length ? recent.map(r => `
-                <tr>
-                  <td>${r.endpoint}</td>
-                  <td>${r.success ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
-                  <td>${r.duration} ms</td>
-                  <td>${new Date(r.executadoEm).toLocaleString('pt-BR')}</td>
-                </tr>
-              `).join('') : `
-                <tr><td colspan="4" class="empty-state">Nenhum resultado disponível ainda.</td></tr>
-              `}
-            </tbody>
-          </table>
+
+        <div id="dash-charts-manual">
+          <div class="wide-panel">
+            <div class="chart-card fade-in-up">
+              <div class="chart-title">A — Tempo de resposta por requisição (última execução)</div>
+              <div class="chart-canvas"><canvas id="chart-dash-ma"></canvas></div>
+            </div>
+            <div class="chart-card fade-in-up">
+              <div class="chart-title">B — Distribuição de tempo de resposta (ms)</div>
+              <div class="chart-canvas"><canvas id="chart-dash-mb"></canvas></div>
+            </div>
+          </div>
         </div>
-      </section>
-      <section class="wide-panel">
-        <div class="chart-card fade-in-up">
-          <div class="chart-title">Taxa de Sucesso</div>
-          <div class="chart-canvas"><canvas id="chart-success"></canvas></div>
-        </div>
-        <div class="chart-card fade-in-up">
-          <div class="chart-title">Duração Média</div>
-          <div class="chart-canvas"><canvas id="chart-duration"></canvas></div>
+
+        <div id="dash-charts-agendado" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="button small primary"    id="dash-chart-filter-hour"  type="button">1h</button>
+            <button class="button small secondary"  id="dash-chart-filter-day"   type="button">24h</button>
+            <button class="button small secondary"  id="dash-chart-filter-week"  type="button">7d</button>
+            <button class="button small secondary"  id="dash-chart-filter-month" type="button">30d</button>
+          </div>
+          <div class="wide-panel">
+            <div class="chart-card fade-in-up" style="height:280px;">
+              <div class="chart-title">C — Performance dos Agendamentos</div>
+              <div class="chart-canvas"><canvas id="chart-dash-sa"></canvas></div>
+            </div>
+            <div class="chart-card fade-in-up">
+              <div class="chart-title">D — Taxa de Sucesso por Endpoint</div>
+              <div class="chart-canvas"><canvas id="chart-dash-sb"></canvas></div>
+            </div>
+          </div>
         </div>
       </section>
     `;
@@ -150,6 +150,7 @@ const Renderer = (() => {
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
     const methods = MethodsManager.list();
+    const limits = RBACManager.getExecutionLimits();
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -157,7 +158,7 @@ const Renderer = (() => {
             <h2 class="section-title">Testes</h2>
             <p class="section-subtitle">Gerencie seus endpoints SOAP e templates de payload.</p>
           </div>
-          <button class="button primary" type="button" id="btn-new-profile">Novo Teste</button>
+          ${RBACManager.canCurrent('profiles:create') ? '<button class="button primary" type="button" id="btn-new-profile">Novo Teste</button>' : ''}
         </div>
         <div class="card-list">
           ${profiles.length ? profiles.map(profile => {
@@ -187,16 +188,36 @@ const Renderer = (() => {
         <div class="section-header">
           <div>
             <h3 class="section-title">Painel de Execução</h3>
-            <p class="section-subtitle">Execute testes de carga contra um perfil cadastrado.</p>
+            <p class="section-subtitle">Execute testes de carga contra um teste ou grupo cadastrado.</p>
           </div>
         </div>
+
+        <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="radio" name="exec-mode" value="teste" id="exec-mode-teste" checked />
+            Executar este Teste
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="radio" name="exec-mode" value="grupo" id="exec-mode-grupo" />
+            Executar Grupo inteiro
+          </label>
+        </div>
+
         <div class="form-grid">
-          <label class="field">
-            Perfil (Endpoint)
-            <select id="test-profile-select">
-              <option value="">Selecione um perfil</option>
-              ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
-            </select>
+          <label class="field" id="exec-target-label">
+            <span id="exec-target-label-text">Teste</span>
+            <div id="exec-target-profile">
+              <select id="test-profile-select">
+                <option value="">Selecione um teste</option>
+                ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
+              </select>
+            </div>
+            <div id="exec-target-group" style="display:none;">
+              <select id="test-group-select">
+                <option value="">Selecione um grupo</option>
+                ${groups.map(g => `<option value="${g.id}">${g.nome}</option>`).join('')}
+              </select>
+            </div>
           </label>
           <label class="field">
             Método SOAP
@@ -207,12 +228,12 @@ const Renderer = (() => {
             ${methods.length === 0 ? '<small class="field-note" style="color:#DC2626;">Nenhum método cadastrado. Acesse "Métodos SOAP" para cadastrar.</small>' : ''}
           </label>
           <label class="field">
-            Requisições
-            <input id="test-requests" type="number" min="1" value="1" />
+            Requisições ${limits.maxRequests < 9999 ? `<span style="font-size:0.78em;color:var(--text-muted);">(máx ${limits.maxRequests})</span>` : ''}
+            <input id="test-requests" type="number" min="1" max="${limits.maxRequests}" value="1" />
           </label>
           <label class="field">
-            Concorrência
-            <input id="test-concurrency" type="number" min="1" value="1" />
+            Concorrência ${limits.maxConcurrency < 9999 ? `<span style="font-size:0.78em;color:var(--text-muted);">(máx ${limits.maxConcurrency})</span>` : ''}
+            <input id="test-concurrency" type="number" min="1" max="${limits.maxConcurrency}" value="1" />
           </label>
           <label class="field">
             Timeout (segundos)
@@ -229,7 +250,7 @@ const Renderer = (() => {
         <div class="section-header">
           <div>
             <h3 class="section-title">Gráficos — Teste Manual</h3>
-            <p class="section-subtitle">Baseado nas últimas 100 execuções manuais.</p>
+            <p class="section-subtitle">Baseado na última execução manual.</p>
           </div>
         </div>
         <div class="wide-panel">
@@ -260,14 +281,20 @@ const Renderer = (() => {
         </div>
         <div class="card-list">
           ${groups.length ? groups.map(group => {
-            const memberCount = profiles.filter(p => p.groupId === group.id).length;
+            const memberProfiles = profiles.filter(p => p.groupId === group.id);
             return `
               <div class="card-list-item" style="border-left:4px solid ${group.cor || '#0F9B94'};">
                 <div class="card-list-item-title" style="display:flex;align-items:center;gap:10px;">
                   <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${group.cor || '#0F9B94'};flex-shrink:0;"></span>
                   ${group.nome}
                 </div>
-                <div class="card-list-item-meta">${group.descricao || 'Sem descrição'} · ${memberCount} perfil(is)</div>
+                <div class="card-list-item-meta">${group.descricao || 'Sem descrição'} · ${memberProfiles.length} teste(s)</div>
+                <div class="card-list-item-meta" style="margin-top:6px;">
+                  <span style="font-size:0.8em;color:var(--text-muted);">Testes: </span>
+                  ${memberProfiles.length
+                    ? memberProfiles.map(p => `<span class="badge secondary" style="font-size:0.78em;margin:0 2px;">${p.nome}</span>`).join('')
+                    : '<span style="font-size:0.8em;color:var(--text-muted);">Nenhum teste associado</span>'}
+                </div>
                 <div class="card-list-item-actions">
                   <button class="button secondary small" type="button" data-action="edit-group" data-group-id="${group.id}">Editar</button>
                   <button class="button danger small" type="button" data-action="delete-group" data-group-id="${group.id}">Excluir</button>
@@ -368,7 +395,7 @@ const Renderer = (() => {
               ${schedules.length ? schedules.map(schedule => `
                 <tr>
                   <td>${schedule.nome}</td>
-                  <td>${schedule.cenarioId ? 'Cenário' : 'Perfis'}</td>
+                  <td>${schedule.groupId ? '<span class="badge info" style="font-size:0.8em;">Grupo</span>' : 'Perfis'}</td>
                   <td>${schedule.agendamento?.dataInicio || 'Recorrente'} → ${schedule.agendamento?.dataFim || ''}</td>
                   <td>${schedule.agendamento?.frequenciaMinutos || 'N/A'} min</td>
                   <td>${schedule.proximaExecucao ? new Date(schedule.proximaExecucao).toLocaleString('pt-BR') : 'N/A'}</td>
@@ -390,6 +417,11 @@ const Renderer = (() => {
 
   const _renderResults = (filters = {}) => {
     const profiles = ProfilesManager.list();
+    const allUsers = UsersManager.list();
+    const getUserName = (userId) => {
+      const u = allUsers.find(u => u.id === userId);
+      return u ? (u.nome || u.usuario) : (userId ? userId.slice(0, 8) : '—');
+    };
     const allResults = ResultsManager.list().slice(-500).reverse();
 
     // Aplicar filtros
@@ -459,6 +491,7 @@ const Renderer = (() => {
                 <th>Status</th>
                 <th>TAG</th>
                 <th>Duração</th>
+                <th>Usuário</th>
                 <th>Executado Em</th>
                 <th>Request</th>
                 <th>Response</th>
@@ -473,11 +506,12 @@ const Renderer = (() => {
                   <td>${result.success ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
                   <td style="font-size:0.82em;color:var(--text-muted);">${result.numAtendimentoDB || '—'}</td>
                   <td>${result.duration} ms</td>
+                  <td style="font-size:0.82em;">${getUserName(result.executadoPor)}</td>
                   <td>${new Date(result.executadoEm).toLocaleString('pt-BR')}</td>
                   <td>${result.requestPayload ? `<button class="button secondary small" data-action="view-request" data-seq="${result.seq}">XML</button>` : '—'}</td>
                   <td>${result.responseBody ? `<button class="button secondary small" data-action="view-response" data-seq="${result.seq}">Response</button>` : '—'}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="9" class="empty-state">Nenhum resultado encontrado com os filtros aplicados.</td></tr>'}
+              `).join('') : '<tr><td colspan="10" class="empty-state">Nenhum resultado encontrado com os filtros aplicados.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -487,6 +521,12 @@ const Renderer = (() => {
 
   const _renderReports = () => {
     const summary = ReportsManager.getSummary();
+    const rows = ReportsManager.getRows();
+    const allUsers = UsersManager.list();
+    const getUserName = (id) => {
+      const u = allUsers.find(u => u.id === id);
+      return u ? (u.nome || u.usuario) : (id ? id.slice(0, 8) : '—');
+    };
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -500,58 +540,96 @@ const Renderer = (() => {
             <button class="button secondary" type="button" id="btn-export-csv">Exportar CSV</button>
           </div>
         </div>
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${summary.total}</div></div>
-          <div class="stat-card"><div class="stat-label">Sucesso</div><div class="stat-value">${summary.successful}</div></div>
-          <div class="stat-card"><div class="stat-label">Falhas</div><div class="stat-value">${summary.failed}</div></div>
-          <div class="stat-card"><div class="stat-label">Taxa</div><div class="stat-value">${summary.successRate}</div></div>
+
+        <div class="button-bar" style="margin-bottom:16px;">
+          <button id="report-view-consolidado" class="button primary small"   type="button">Consolidado</button>
+          <button id="report-view-por-teste"   class="button secondary small" type="button">Por Teste</button>
         </div>
-        <section class="section-card" style="margin-top:16px;">
-          <div class="section-header">
-            <div>
-              <h3 class="section-title">Por Endpoint</h3>
-            </div>
+
+        <div id="report-section-consolidado">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Execuções</div><div class="stat-value">${summary.total}</div></div>
+            <div class="stat-card"><div class="stat-label">Sucesso</div><div class="stat-value">${summary.successful}</div></div>
+            <div class="stat-card"><div class="stat-label">Falhas</div><div class="stat-value">${summary.failed}</div></div>
+            <div class="stat-card"><div class="stat-label">Taxa</div><div class="stat-value">${summary.successRate}</div></div>
           </div>
+          <section class="section-card" style="margin-top:16px;">
+            <div class="section-header"><div><h3 class="section-title">Por Endpoint</h3></div></div>
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Endpoint</th>
+                    <th>Total</th>
+                    <th>Sucesso</th>
+                    <th>Falhas</th>
+                    <th>Taxa</th>
+                    <th>Avg ms</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${summary.byEndpoint.length ? summary.byEndpoint.map(item => `
+                    <tr>
+                      <td>${item.endpoint}</td>
+                      <td>${item.total}</td>
+                      <td>${item.success}</td>
+                      <td>${item.failed}</td>
+                      <td>${item.successRate}</td>
+                      <td>${item.avgDuration}</td>
+                    </tr>
+                  `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum dado disponível para relatórios.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="report-section-por-teste" style="display:none;">
           <div class="table-wrapper">
             <table class="table">
               <thead>
                 <tr>
+                  <th>Seq</th>
                   <th>Endpoint</th>
-                  <th>Total</th>
-                  <th>Sucesso</th>
-                  <th>Falhas</th>
-                  <th>Taxa</th>
-                  <th>Avg ms</th>
+                  <th>Status</th>
+                  <th>TAG</th>
+                  <th>Duração</th>
+                  <th>Usuário</th>
+                  <th>Tipo</th>
+                  <th>Data</th>
                 </tr>
               </thead>
               <tbody>
-                ${summary.byEndpoint.length ? summary.byEndpoint.map(item => `
+                ${rows.length ? rows.map(r => `
                   <tr>
-                    <td>${item.endpoint}</td>
-                    <td>${item.total}</td>
-                    <td>${item.success}</td>
-                    <td>${item.failed}</td>
-                    <td>${item.successRate}</td>
-                    <td>${item.avgDuration}</td>
+                    <td>${r.Seq}</td>
+                    <td>${r.Endpoint}</td>
+                    <td>${r.Status === 'OK' ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
+                    <td style="font-size:0.82em;color:var(--text-muted);">${r.NumAtendimentoDB || '—'}</td>
+                    <td>${r.DuracaoMs} ms</td>
+                    <td style="font-size:0.82em;">${getUserName(r.ExecutadoPor)}</td>
+                    <td>${r.Origem === 'scheduled' ? '<span class="badge info" style="font-size:0.8em;">Agendado</span>' : '<span class="badge secondary" style="font-size:0.8em;color:var(--text-muted);">Manual</span>'}</td>
+                    <td>${r.ExecutadoEm}</td>
                   </tr>
-                `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum dado disponível para relatórios.</td></tr>'}
+                `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum dado disponível.</td></tr>'}
               </tbody>
             </table>
           </div>
-        </section>
+        </div>
       </section>
     `;
   };
 
   const _buildScheduleModalBody = (schedule = null) => {
     const profiles = ProfilesManager.list();
-    const scenarios = ScenariosManager.list();
+    const groups = GroupsManager.list();
     const methods = MethodsManager.list();
     const ag = schedule?.agendamento || {};
     const cfg = schedule?.config || {};
     const selectedProfileIds = schedule?.profileIds || [];
     const selectedDays = ag.diasSemana || ['dom','seg','ter','qua','qui','sex','sab'];
     const modoRecorrente = !ag.dataInicio;
+    const targetIsGroup = !!schedule?.groupId;
 
     const v = (val, fallback) => (val !== undefined && val !== null && val !== '') ? val : fallback;
 
@@ -569,8 +647,8 @@ const Renderer = (() => {
           <label class="field">
             Tipo de execução
             <select id="schedule-target-type">
-              <option value="profiles" ${!schedule?.cenarioId ? 'selected' : ''}>Perfis</option>
-              <option value="scenario" ${schedule?.cenarioId ? 'selected' : ''}>Cenário</option>
+              <option value="profiles" ${!targetIsGroup ? 'selected' : ''}>Perfis</option>
+              <option value="groups"   ${targetIsGroup  ? 'selected' : ''}>Grupo</option>
             </select>
           </label>
           <label class="field" id="schedule-method-label">
@@ -580,14 +658,14 @@ const Renderer = (() => {
               ${methods.map(m => `<option value="${m.id}" ${cfg.methodId === m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}
             </select>
           </label>
-          <label class="field" id="schedule-scenario-label">
-            Cenário
-            <select id="schedule-scenario-id">
-              <option value="">Selecione um cenário</option>
-              ${scenarios.map(s => `<option value="${s.id}" ${schedule?.cenarioId === s.id ? 'selected' : ''}>${s.nome}</option>`).join('')}
+          <label class="field" id="schedule-group-label" style="${!targetIsGroup ? 'display:none;' : ''}">
+            Grupo
+            <select id="schedule-group-id">
+              <option value="">Selecione um grupo</option>
+              ${groups.map(g => `<option value="${g.id}" ${schedule?.groupId === g.id ? 'selected' : ''}>${g.nome}</option>`).join('')}
             </select>
           </label>
-          <label class="field" id="schedule-profiles-label" style="grid-column:1/-1;">
+          <label class="field" id="schedule-profiles-label" style="grid-column:1/-1;${targetIsGroup ? 'display:none;' : ''}">
             Perfis selecionados (Ctrl+clique para múltiplos)
             <select id="schedule-profile-ids" multiple size="4" style="height:auto;">
               ${profiles.map(p => `<option value="${p.id}" ${selectedProfileIds.includes(p.id) ? 'selected' : ''}>${p.nome}</option>`).join('')}
@@ -674,20 +752,17 @@ const Renderer = (() => {
     }
 
     const targetType = document.getElementById('schedule-target-type');
-    const scenarioLabel = document.getElementById('schedule-scenario-label');
+    const groupLabel    = document.getElementById('schedule-group-label');
     const profilesLabel = document.getElementById('schedule-profiles-label');
-    const methodLabel = document.getElementById('schedule-method-label');
 
     const updateTargetFields = () => {
       if (!targetType) return;
-      if (targetType.value === 'scenario') {
-        if (scenarioLabel) scenarioLabel.style.display = 'block';
-        if (profilesLabel) profilesLabel.style.display = 'block';
-        if (methodLabel) methodLabel.style.display = 'none';
+      if (targetType.value === 'groups') {
+        if (groupLabel)    groupLabel.style.display    = 'block';
+        if (profilesLabel) profilesLabel.style.display = 'none';
       } else {
-        if (scenarioLabel) scenarioLabel.style.display = 'none';
+        if (groupLabel)    groupLabel.style.display    = 'none';
         if (profilesLabel) profilesLabel.style.display = 'block';
-        if (methodLabel) methodLabel.style.display = 'block';
       }
     };
 
@@ -739,9 +814,7 @@ const Renderer = (() => {
     const name = document.getElementById('schedule-name')?.value.trim();
     const description = document.getElementById('schedule-description')?.value.trim();
     const targetType = document.getElementById('schedule-target-type')?.value;
-    const scenarioId = document.getElementById('schedule-scenario-id')?.value || null;
     const methodId = document.getElementById('schedule-method-id')?.value || null;
-    const profileIds = Array.from(document.getElementById('schedule-profile-ids')?.selectedOptions || []).map(option => option.value);
     const isRecorrente = document.getElementById('sched-mode-recorrente')?.checked;
     const startDate = isRecorrente ? null : (document.getElementById('schedule-start-date')?.value || null);
     const endDate = isRecorrente ? null : (document.getElementById('schedule-end-date')?.value || null);
@@ -753,15 +826,23 @@ const Renderer = (() => {
     const timeout = Number(document.getElementById('schedule-timeout')?.value || 120);
     const days = Array.from(document.querySelectorAll('input[name="schedule-days"]:checked')).map(input => input.value);
 
+    // Resolver profileIds e groupId conforme tipo de alvo
+    let profileIds = [];
+    let groupId = null;
+    if (targetType === 'groups') {
+      groupId = document.getElementById('schedule-group-id')?.value || null;
+      if (!groupId) return NotificationsManager.danger('Selecione um grupo para o agendamento');
+      profileIds = ProfilesManager.list().filter(p => p.groupId === groupId).map(p => p.id);
+      if (profileIds.length === 0) return NotificationsManager.danger('O grupo selecionado não possui testes cadastrados');
+    } else {
+      profileIds = Array.from(document.getElementById('schedule-profile-ids')?.selectedOptions || []).map(opt => opt.value);
+    }
+
     if (!name) {
       return NotificationsManager.danger('Nome do agendamento é obrigatório');
     }
 
-    if (targetType === 'scenario' && !scenarioId) {
-      return NotificationsManager.danger('Selecione um cenário para agendar');
-    }
-
-    if (targetType !== 'scenario' && !methodId) {
+    if (!methodId) {
       return NotificationsManager.danger('Selecione um método SOAP para o agendamento');
     }
 
@@ -781,9 +862,10 @@ const Renderer = (() => {
     const data = {
       nome: name,
       descricao: description,
-      cenarioId: targetType === 'scenario' ? scenarioId : null,
+      cenarioId: null,
+      groupId,
       profileIds,
-      config: { requestsPerProfile, concurrency, timeout, methodId: targetType !== 'scenario' ? methodId : null },
+      config: { requestsPerProfile, concurrency, timeout, methodId },
       agendamento: { dataInicio: startDate, dataFim: endDate, horaInicio: startTime, horaFim: endTime, frequenciaMinutos: frequency, diasSemana: days },
       ativo: true
     };
@@ -793,10 +875,12 @@ const Renderer = (() => {
         SchedulerManager.update(scheduleId, data);
         ModalManager.close();
         NotificationsManager.success('Agendamento atualizado com sucesso');
+        AuditLogManager.record('agendamento:editar', name);
       } else {
         SchedulerManager.create(data);
         ModalManager.close();
         NotificationsManager.success('Agendamento criado com sucesso');
+        AuditLogManager.record('agendamento:criar', name);
       }
       _renderMainContent('schedules');
       _attachEventListeners();
@@ -981,6 +1065,7 @@ const Renderer = (() => {
         codigoApoiado, codigoSenha, cor: color, groupId
       });
       if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
+      AuditLogManager.record('teste:editar', name);
       NotificationsManager.success('Perfil atualizado com sucesso');
     } else {
       result = ProfilesManager.create({
@@ -989,6 +1074,7 @@ const Renderer = (() => {
         criadoPor: createdBy
       });
       if (!result) return NotificationsManager.danger(`Falha ao criar perfil. Já existe um perfil com o código "${code.toUpperCase()}". Use um código diferente.`);
+      AuditLogManager.record('teste:criar', name);
       NotificationsManager.success('Perfil criado com sucesso');
     }
 
@@ -1082,10 +1168,12 @@ const Renderer = (() => {
     if (methodId) {
       result = MethodsManager.update(methodId, { nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate });
       if (!result) return NotificationsManager.danger('Falha ao atualizar método');
+      AuditLogManager.record('metodo:editar', nome);
       NotificationsManager.success('Método atualizado com sucesso');
     } else {
       result = MethodsManager.create({ nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate, criadoPor });
       if (!result) return NotificationsManager.danger('Falha ao criar método');
+      AuditLogManager.record('metodo:criar', nome);
       NotificationsManager.success('Método criado com sucesso');
     }
 
@@ -1164,11 +1252,13 @@ const Renderer = (() => {
     if (groupId) {
       const updated = GroupsManager.update(groupId, { nome: name, descricao: description, cor: color });
       if (!updated) return NotificationsManager.danger('Falha ao atualizar grupo.');
+      AuditLogManager.record('grupo:editar', name);
       ModalManager.close();
       NotificationsManager.success('Grupo atualizado com sucesso');
     } else {
       const group = GroupsManager.create({ nome: name, descricao: description, cor: color, criadoPor: createdBy });
       if (!group) return NotificationsManager.danger('Falha ao criar grupo. Verifique se já não existe um grupo com este nome.');
+      AuditLogManager.record('grupo:criar', name);
       ModalManager.close();
       NotificationsManager.success('Grupo criado com sucesso');
     }
@@ -1382,6 +1472,7 @@ const Renderer = (() => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
     const allResults = ResultsManager.list();
     const allUsers = UsersManager.list();
+    const auditEntries = AuditLogManager.list();
 
     // Agrupar resultados por userId
     const byUser = {};
@@ -1445,6 +1536,39 @@ const Renderer = (() => {
             </thead>
             <tbody>
               ${logRows.length ? logRows.join('') : '<tr><td colspan="5" class="empty-state">Nenhuma execução registrada.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Log de Atividades</h3>
+            <p class="section-subtitle">Registro de criações, edições, exclusões e execuções por usuário.</p>
+          </div>
+          <button class="button danger small" type="button" id="btn-clear-audit">Limpar Log</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Alvo</th>
+                <th>Usuário</th>
+                <th>Detalhes</th>
+                <th>Data/Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${auditEntries.length ? auditEntries.map(e => `
+                <tr>
+                  <td><span class="badge secondary" style="font-size:0.78em;">${e.tipo}</span></td>
+                  <td>${e.targetNome}</td>
+                  <td>${e.usuario}</td>
+                  <td style="font-size:0.82em;color:var(--text-muted);">${e.detalhes || '—'}</td>
+                  <td>${new Date(e.timestamp).toLocaleString('pt-BR')}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" class="empty-state">Nenhuma atividade registrada ainda.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -1693,73 +1817,184 @@ const Renderer = (() => {
     });
   };
 
-  const _initializeDashboardCharts = () => {
-    const results = ResultsManager.list();
-    const uniqueEndpoints = [...new Set(results.map(r => r.endpoint))];
-    if (uniqueEndpoints.length === 0) {
-      return;
-    }
+  const _initializeDashboardManualCharts = () => {
+    const lastTestResults = _getLastTestResults();
 
-    const successRates = uniqueEndpoints.map(endpoint => {
-      const endpointResults = results.filter(r => r.endpoint === endpoint);
-      const successCount = endpointResults.filter(r => r.success).length;
-      return endpointResults.length ? Math.round((successCount / endpointResults.length) * 100) : 0;
-    });
-    const avgDurations = uniqueEndpoints.map(endpoint => {
-      const endpointResults = results.filter(r => r.endpoint === endpoint);
-      return endpointResults.length
-        ? Math.round(endpointResults.reduce((sum, item) => sum + (item.duration || 0), 0) / endpointResults.length)
-        : 0;
-    });
-
-    if (document.getElementById('chart-success')) {
-      _resetChart('success');
-      state.chartRefs.success = new Chart(document.getElementById('chart-success').getContext('2d'), {
-        type: 'doughnut',
-        data: {
-          labels: uniqueEndpoints,
-          datasets: [{
-            data: successRates,
-            backgroundColor: uniqueEndpoints.map((_, index) => `rgba(15, 155, 148, ${0.7 - index * 0.08})`),
-            borderColor: 'transparent'
-          }]
-        },
-        options: {
-          plugins: {
-            legend: { position: 'bottom', labels: { color: 'var(--text-muted)', font: { family: "'JetBrains Mono', monospace", size: 12 } } }
+    const canvasA = document.getElementById('chart-dash-ma');
+    if (canvasA) {
+      _resetChart('dash-ma');
+      if (lastTestResults.length > 0) {
+        state.chartRefs['dash-ma'] = new Chart(canvasA.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: lastTestResults.map((_, i) => `#${i + 1}`),
+            datasets: [{
+              label: 'Tempo (ms)',
+              data: lastTestResults.map(r => r.duration),
+              borderColor: 'rgba(15, 155, 148, 0.9)',
+              backgroundColor: 'rgba(15, 155, 148, 0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: lastTestResults.length > 50 ? 2 : 4
+            }]
           },
-          responsive: true,
-          maintainAspectRatio: false
-        }
-      });
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
+              x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
     }
 
-    if (document.getElementById('chart-duration')) {
-      _resetChart('duration');
-      state.chartRefs.duration = new Chart(document.getElementById('chart-duration').getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: uniqueEndpoints,
-          datasets: [{
-            label: 'Duração média (ms)',
-            data: avgDurations,
-            backgroundColor: uniqueEndpoints.map((_, index) => `rgba(196, 155, 60, ${0.65 - index * 0.07})`),
-            borderColor: 'transparent'
-          }]
-        },
+    const canvasB = document.getElementById('chart-dash-mb');
+    if (canvasB) {
+      _resetChart('dash-mb');
+      if (lastTestResults.length > 0) {
+        const durations = lastTestResults.map(r => r.duration || 0);
+        const maxDur = Math.max(...durations);
+        let bucketBounds;
+        if (maxDur <= 1000)       bucketBounds = [0, 100, 200, 300, 500, 750, 1000];
+        else if (maxDur <= 5000)  bucketBounds = [0, 500, 1000, 2000, 3000, 5000];
+        else if (maxDur <= 15000) bucketBounds = [0, 1000, 3000, 5000, 8000, 12000, 15000];
+        else                      bucketBounds = [0, 2000, 5000, 10000, 20000, 30000, maxDur + 1];
+
+        const bucketLabels = [];
+        const bucketCounts = [];
+        for (let i = 0; i < bucketBounds.length - 1; i++) {
+          const lo = bucketBounds[i];
+          const hi = bucketBounds[i + 1];
+          bucketLabels.push(`${lo}–${hi}ms`);
+          bucketCounts.push(durations.filter(d => d >= lo && d < hi).length);
+        }
+        state.chartRefs['dash-mb'] = new Chart(canvasB.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: bucketLabels,
+            datasets: [{ label: 'Requisições', data: bucketCounts, backgroundColor: 'rgba(196, 155, 60, 0.65)', borderColor: 'transparent' }]
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { color: 'var(--text-muted)', stepSize: 1 }, title: { display: true, text: 'Qtd requisições', color: 'var(--text-muted)' } },
+              x: { ticks: { color: 'var(--text-muted)' }, title: { display: true, text: 'Faixa de tempo', color: 'var(--text-muted)' } }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
+    }
+  };
+
+  const _initializeDashboardScheduleCharts = (filter = 'day') => {
+    // Chart C — Performance dos Agendamentos
+    const canvasSA = document.getElementById('chart-dash-sa');
+    if (canvasSA) {
+      const now = new Date();
+      let cutoff;
+      if (filter === 'hour')       cutoff = new Date(now - 60 * 60 * 1000);
+      else if (filter === 'week')  cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      else if (filter === 'month') cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      else                         cutoff = new Date(now - 24 * 60 * 60 * 1000);
+
+      const allResults = ResultsManager.list()
+        .filter(r => r.origem === 'scheduled' && new Date(r.executadoEm) >= cutoff)
+        .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+
+      const formatLabel = (iso) => {
+        const d = new Date(iso);
+        if (filter === 'hour' || filter === 'day') return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2,'0')}h`;
+      };
+
+      const scheduleIds = [...new Set(allResults.map(r => r.scheduleId).filter(Boolean))];
+      const schedules = SchedulerManager.list();
+      const datasets = [];
+      scheduleIds.forEach((sid, idx) => {
+        const color = _CHART_PALETTE[idx % _CHART_PALETTE.length];
+        const sResults = allResults.filter(r => r.scheduleId === sid);
+        const sched = schedules.find(s => s.id === sid);
+        const name = sched ? sched.nome : `Agendamento ${idx + 1}`;
+        const medianVal = _median(sResults.map(r => r.duration));
+        datasets.push({
+          label: name,
+          data: sResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+          borderColor: color.line, backgroundColor: color.fill, fill: false, tension: 0.3,
+          pointRadius: sResults.length > 50 ? 2 : 4, borderWidth: 2
+        });
+        datasets.push({
+          label: `${name} (mediana: ${medianVal}ms)`,
+          data: sResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+          borderColor: color.line, backgroundColor: 'transparent', fill: false, tension: 0,
+          pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
+        });
+      });
+
+      _resetChart('dash-sa');
+      state.chartRefs['dash-sa'] = new Chart(canvasSA.getContext('2d'), {
+        type: 'line',
+        data: { datasets },
         options: {
+          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
           plugins: {
-            legend: { display: false }
+            legend: {
+              display: scheduleIds.length > 0,
+              labels: { color: 'var(--text-muted)', font: { size: 11 }, filter: (item) => !item.text.includes('mediana:') || scheduleIds.length <= 3 }
+            },
+            title: { display: allResults.length === 0, text: 'Nenhuma execução agendada no período', color: 'var(--text-muted)' }
           },
           scales: {
             y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
-            x: { ticks: { color: 'var(--text-muted)' } }
+            x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 15 } }
           },
           responsive: true,
           maintainAspectRatio: false
         }
       });
+
+      // Atualizar botões de filtro do dashboard
+      ['hour', 'day', 'week', 'month'].forEach(f => {
+        const btn = document.getElementById(`dash-chart-filter-${f}`);
+        if (!btn) return;
+        btn.className = `button small ${f === filter ? 'primary' : 'secondary'}`;
+      });
     }
+
+    // Chart D — Taxa de Sucesso por Endpoint
+    const canvasSB = document.getElementById('chart-dash-sb');
+    if (canvasSB) {
+      const results = ResultsManager.list();
+      const uniqueEndpoints = [...new Set(results.map(r => r.endpoint))];
+      if (uniqueEndpoints.length > 0) {
+        const successRates = uniqueEndpoints.map(endpoint => {
+          const ep = results.filter(r => r.endpoint === endpoint);
+          const ok = ep.filter(r => r.success).length;
+          return ep.length ? Math.round((ok / ep.length) * 100) : 0;
+        });
+        _resetChart('dash-sb');
+        state.chartRefs['dash-sb'] = new Chart(canvasSB.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: uniqueEndpoints,
+            datasets: [{ data: successRates, backgroundColor: uniqueEndpoints.map((_, i) => `rgba(15,155,148,${0.7 - i * 0.08})`), borderColor: 'transparent' }]
+          },
+          options: {
+            plugins: { legend: { position: 'bottom', labels: { color: 'var(--text-muted)', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
+    }
+  };
+
+  const _initializeDashboardCharts = () => {
+    _initializeDashboardManualCharts();
   };
 
   const _attachEventListeners = () => {
@@ -1779,6 +2014,32 @@ const Renderer = (() => {
       });
     }
 
+    // Dashboard: toggle tabs Manuais / Agendados
+    const dashTabManual = document.getElementById('dash-tab-manual');
+    const dashTabAgendado = document.getElementById('dash-tab-agendado');
+    if (dashTabManual && dashTabAgendado) {
+      dashTabManual.addEventListener('click', () => {
+        document.getElementById('dash-charts-manual').style.display = '';
+        document.getElementById('dash-charts-agendado').style.display = 'none';
+        dashTabManual.className = 'button primary small';
+        dashTabAgendado.className = 'button secondary small';
+        setTimeout(_initializeDashboardManualCharts, 50);
+      });
+      dashTabAgendado.addEventListener('click', () => {
+        document.getElementById('dash-charts-manual').style.display = 'none';
+        document.getElementById('dash-charts-agendado').style.display = '';
+        dashTabManual.className = 'button secondary small';
+        dashTabAgendado.className = 'button primary small';
+        setTimeout(() => _initializeDashboardScheduleCharts('day'), 50);
+      });
+    }
+
+    // Dashboard: filtros do gráfico de agendados
+    ['hour', 'day', 'week', 'month'].forEach(f => {
+      const btn = document.getElementById(`dash-chart-filter-${f}`);
+      if (btn) btn.addEventListener('click', () => _initializeDashboardScheduleCharts(f));
+    });
+
     const clearResultsButton = document.getElementById('btn-clear-results');
     if (clearResultsButton) {
       clearResultsButton.addEventListener('click', () => {
@@ -1791,6 +2052,24 @@ const Renderer = (() => {
             ResultsManager.clear();
             NotificationsManager.success('Registros limpos com sucesso');
             _renderMainContent('results');
+            _attachEventListeners();
+          }
+        });
+      });
+    }
+
+    const clearAuditBtn = document.getElementById('btn-clear-audit');
+    if (clearAuditBtn) {
+      clearAuditBtn.addEventListener('click', () => {
+        ModalManager.confirm({
+          title: 'Limpar log de atividades',
+          body: '<p>Todos os registros de auditoria serão removidos permanentemente. Deseja continuar?</p>',
+          confirmText: 'Limpar',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            AuditLogManager.clear();
+            NotificationsManager.success('Log de atividades limpo');
+            _renderMainContent('settings');
             _attachEventListeners();
           }
         });
@@ -1839,6 +2118,24 @@ const Renderer = (() => {
         link.click();
         URL.revokeObjectURL(url);
         NotificationsManager.success('Exportação de resultados iniciada');
+      });
+    }
+
+    // Reports toggle: Consolidado / Por Teste
+    const reportConsolidado = document.getElementById('report-view-consolidado');
+    const reportPorTeste    = document.getElementById('report-view-por-teste');
+    if (reportConsolidado && reportPorTeste) {
+      reportConsolidado.addEventListener('click', () => {
+        document.getElementById('report-section-consolidado').style.display = '';
+        document.getElementById('report-section-por-teste').style.display = 'none';
+        reportConsolidado.className = 'button primary small';
+        reportPorTeste.className = 'button secondary small';
+      });
+      reportPorTeste.addEventListener('click', () => {
+        document.getElementById('report-section-consolidado').style.display = 'none';
+        document.getElementById('report-section-por-teste').style.display = '';
+        reportConsolidado.className = 'button secondary small';
+        reportPorTeste.className = 'button primary small';
       });
     }
 
@@ -1923,7 +2220,9 @@ const Renderer = (() => {
           confirmText: 'Excluir',
           cancelText: 'Cancelar',
           onConfirm: () => {
+            const pName = ProfilesManager.getById(profileId)?.nome || profileId;
             ProfilesManager.delete_(profileId);
+            AuditLogManager.record('teste:excluir', pName);
             NotificationsManager.warning('Perfil excluído');
             _renderMainContent('profiles');
             _attachEventListeners();
@@ -1949,7 +2248,9 @@ const Renderer = (() => {
           confirmText: 'Excluir',
           cancelText: 'Cancelar',
           onConfirm: () => {
+            const gName = GroupsManager.getById(groupId)?.nome || groupId;
             GroupsManager.delete_(groupId);
+            AuditLogManager.record('grupo:excluir', gName);
             NotificationsManager.warning('Grupo excluído');
             _renderMainContent('groups');
             _attachEventListeners();
@@ -2047,7 +2348,9 @@ const Renderer = (() => {
           confirmText: 'Excluir',
           cancelText: 'Cancelar',
           onConfirm: () => {
+            const sName = SchedulerManager.getById(scheduleId)?.nome || scheduleId;
             SchedulerManager.delete_(scheduleId);
+            AuditLogManager.record('agendamento:excluir', sName);
             NotificationsManager.warning('Agendamento excluído');
             _renderMainContent('schedules');
             _attachEventListeners();
@@ -2075,45 +2378,53 @@ const Renderer = (() => {
       });
     });
 
+    // --- Radio toggle Teste / Grupo ---
+    document.querySelectorAll('input[name="exec-mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const isGrupo = radio.value === 'grupo';
+        const labelEl = document.getElementById('exec-target-label-text');
+        const profileDiv = document.getElementById('exec-target-profile');
+        const groupDiv   = document.getElementById('exec-target-group');
+        if (labelEl) labelEl.textContent = isGrupo ? 'Grupo' : 'Teste';
+        if (profileDiv) profileDiv.style.display = isGrupo ? 'none' : '';
+        if (groupDiv)   groupDiv.style.display   = isGrupo ? '' : 'none';
+      });
+    });
+
     // --- Painel de Execução (aba Testes) ---
     const startTestBtn = document.getElementById('btn-start-test');
     const abortTestBtn = document.getElementById('btn-abort-test');
 
     if (startTestBtn) {
       startTestBtn.addEventListener('click', async () => {
-        const profileId = document.getElementById('test-profile-select')?.value;
-        const methodId = document.getElementById('test-method-select')?.value;
-
-        if (!profileId) return NotificationsManager.danger('Selecione um perfil (endpoint) para iniciar o teste');
+        const execMode = document.querySelector('input[name="exec-mode"]:checked')?.value || 'teste';
+        const methodId  = document.getElementById('test-method-select')?.value;
         if (!methodId) return NotificationsManager.danger('Selecione um método SOAP para iniciar o teste');
 
-        const profile = ProfilesManager.getById(profileId);
+        const limits = RBACManager.getExecutionLimits();
+        const rawRequests    = Number(document.getElementById('test-requests')?.value   || 1);
+        const rawConcurrency = Number(document.getElementById('test-concurrency')?.value || 1);
+        const timeout        = Number(document.getElementById('test-timeout')?.value     || 120);
+        const requests    = Math.min(rawRequests,    limits.maxRequests);
+        const concurrency = Math.min(rawConcurrency, limits.maxConcurrency);
+
         const method = MethodsManager.getById(methodId);
-        if (!profile || !method) return;
+        if (!method) return;
 
-        // Perfil traz URL/credenciais; método traz SOAPAction/payload/xmlTag
-        const mergedProfile = {
-          ...profile,
-          payloadTemplate: method.payloadTemplate,
-          xmlTag: method.xmlTag,
-          soapAction: method.soapAction
-        };
-
-        // Avisar se placeholders essenciais não tiverem valor no perfil
-        const warnings = [];
-        if (method.payloadTemplate.includes('{{CODIGO_APOIADO}}') && !profile.codigoApoiado) {
-          warnings.push('Código Apoiado não configurado no perfil');
+        // Construir lista de perfis a executar
+        let profilesToRun = [];
+        if (execMode === 'grupo') {
+          const groupId = document.getElementById('test-group-select')?.value;
+          if (!groupId) return NotificationsManager.danger('Selecione um grupo para iniciar o teste');
+          profilesToRun = ProfilesManager.list().filter(p => p.groupId === groupId);
+          if (profilesToRun.length === 0) return NotificationsManager.danger('O grupo selecionado não possui testes cadastrados');
+        } else {
+          const profileId = document.getElementById('test-profile-select')?.value;
+          if (!profileId) return NotificationsManager.danger('Selecione um teste para iniciar');
+          const profile = ProfilesManager.getById(profileId);
+          if (!profile) return;
+          profilesToRun = [profile];
         }
-        if (method.payloadTemplate.includes('{{CODIGO_SENHA}}') && !profile.codigoSenha) {
-          warnings.push('Senha de Integração não configurada no perfil');
-        }
-        if (warnings.length > 0) {
-          NotificationsManager.warning(`Atenção: ${warnings.join(' · ')}. Edite o perfil para adicionar esses valores.`);
-        }
-
-        const requests = Number(document.getElementById('test-requests')?.value || 1);
-        const concurrency = Number(document.getElementById('test-concurrency')?.value || 1);
-        const timeout = Number(document.getElementById('test-timeout')?.value || 120);
 
         startTestBtn.disabled = true;
         if (abortTestBtn) abortTestBtn.disabled = false;
@@ -2125,40 +2436,62 @@ const Renderer = (() => {
         }
 
         try {
-          const results = await RunnerEngine.executeBatch([mergedProfile], {
-            requestsPerProfile: requests,
-            concurrency,
-            timeout
-          }, (progress) => {
-            if (progressDiv) {
-              progressDiv.innerHTML = `<span class="badge info">${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;
-            }
-          });
+          let totalSuccess = 0;
+          let totalAll = 0;
 
-          const successCount = results.filter(r => r.success).length;
-          const endpointLabel = `${profile.nome} / ${method.nome}`;
+          for (const profile of profilesToRun) {
+            const mergedProfile = {
+              ...profile,
+              payloadTemplate: method.payloadTemplate,
+              xmlTag: method.xmlTag,
+              soapAction: method.soapAction
+            };
 
-          ResultsManager.addBatch(results.map(r => ({
-            profileId: r.profileId,
-            endpoint: endpointLabel,
-            version: profile.version || '1.0',
-            duration: r.duration,
-            statusCode: r.statusCode,
-            success: r.success,
-            numAtendimentoDB: r.numDB,
-            requestPayload: r.requestPayload,
-            responseBody: r.responseBody,
-            errorDetail: r.errorDetail,
-            origem: 'manual',
-            scheduleId: null,
-            executadoPor: state.currentUser?.id,
-            cenarioId: null
-          })));
+            const warnings = [];
+            if (method.payloadTemplate?.includes('{{CODIGO_APOIADO}}') && !profile.codigoApoiado)
+              warnings.push(`${profile.nome}: Código Apoiado não configurado`);
+            if (method.payloadTemplate?.includes('{{CODIGO_SENHA}}') && !profile.codigoSenha)
+              warnings.push(`${profile.nome}: Senha de Integração não configurada`);
+            if (warnings.length > 0)
+              NotificationsManager.warning(warnings.join(' · '));
+
+            const results = await RunnerEngine.executeBatch([mergedProfile], {
+              requestsPerProfile: requests,
+              concurrency,
+              timeout
+            }, (progress) => {
+              if (progressDiv) {
+                progressDiv.innerHTML = `<span class="badge info">${profile.nome}: ${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;
+              }
+            });
+
+            const endpointLabel = `${profile.nome} / ${method.nome}`;
+            ResultsManager.addBatch(results.map(r => ({
+              profileId: r.profileId,
+              endpoint: endpointLabel,
+              version: profile.version || '1.0',
+              duration: r.duration,
+              statusCode: r.statusCode,
+              success: r.success,
+              numAtendimentoDB: r.numDB,
+              requestPayload: r.requestPayload,
+              responseBody: r.responseBody,
+              errorDetail: r.errorDetail,
+              origem: 'manual',
+              scheduleId: null,
+              executadoPor: state.currentUser?.id,
+              cenarioId: null
+            })));
+
+            totalSuccess += results.filter(r => r.success).length;
+            totalAll += results.length;
+          }
 
           if (progressDiv) {
-            progressDiv.innerHTML = `<span class="badge success">${successCount}/${results.length} com sucesso</span>`;
+            progressDiv.innerHTML = `<span class="badge success">${totalSuccess}/${totalAll} com sucesso</span>`;
           }
-          NotificationsManager.success(`Teste concluído: ${successCount}/${results.length} com sucesso`);
+          NotificationsManager.success(`Teste concluído: ${totalSuccess}/${totalAll} com sucesso`);
+          AuditLogManager.record('teste:executar', profilesToRun.map(p => p.nome).join(', '), `${requests} req, ${concurrency} conc`);
           setTimeout(_initializeManualCharts, 150);
         } catch (error) {
           if (progressDiv) progressDiv.innerHTML = '<span class="badge danger">Erro ou teste abortado</span>';
@@ -2205,7 +2538,9 @@ const Renderer = (() => {
           confirmText: 'Excluir',
           cancelText: 'Cancelar',
           onConfirm: () => {
+            const mName = MethodsManager.getById(methodId)?.nome || methodId;
             MethodsManager.delete_(methodId);
+            AuditLogManager.record('metodo:excluir', mName);
             NotificationsManager.warning('Método excluído');
             _renderMainContent('methods');
             _attachEventListeners();

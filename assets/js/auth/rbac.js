@@ -29,7 +29,7 @@ const RBACManager = (() => {
     'profiles:view_all': { admin: true, operador: false, visualizador: false }, // Admin vê de todos
 
     // Gestão de grupos
-    'groups:list': { admin: true, operador: true, visualizador: false },
+    'groups:list': { admin: true, operador: true, visualizador: true },
     'groups:create': { admin: true, operador: true, visualizador: false },
     'groups:edit': { admin: true, operador: true, visualizador: false },
     'groups:delete': { admin: true, operador: true, visualizador: false },
@@ -43,8 +43,14 @@ const RBACManager = (() => {
     'scenarios:execute': { admin: true, operador: true, visualizador: false },
     'scenarios:view_all': { admin: true, operador: false, visualizador: false },
 
+    // Gestão de métodos SOAP
+    'methods:list':   { admin: true, operador: true, visualizador: true  },
+    'methods:create': { admin: true, operador: true, visualizador: false },
+    'methods:edit':   { admin: true, operador: true, visualizador: false },
+    'methods:delete': { admin: true, operador: false, visualizador: false },
+
     // Execução de testes
-    'tests:execute_manual': { admin: true, operador: true, visualizador: false },
+    'tests:execute_manual': { admin: true, operador: true, visualizador: true },
     'tests:execute_scheduled': { admin: true, operador: true, visualizador: false },
 
     // Gestão de agendamentos (scheduler)
@@ -173,6 +179,20 @@ const RBACManager = (() => {
   };
 
   /**
+   * Obter limites de execução por nível
+   * @returns {{ maxRequests: number, maxConcurrency: number }}
+   */
+  const getExecutionLimits = (nivel = null) => {
+    if (!nivel) nivel = SessionManager.getCurrentLevel();
+    const MAP = {
+      admin:        { maxRequests: 9999, maxConcurrency: 9999 },
+      operador:     { maxRequests: 50,   maxConcurrency: 50   },
+      visualizador: { maxRequests: 10,   maxConcurrency: 10   },
+    };
+    return MAP[nivel] || { maxRequests: 1, maxConcurrency: 1 };
+  };
+
+  /**
    * Validar se é um nível válido
    */
   const isValidLevel = (nivel) => {
@@ -207,6 +227,7 @@ const RBACManager = (() => {
     getLevels,
     isValidLevel,
     getDebugInfo,
+    getExecutionLimits,
     PERMISSIONS
   };
 })();

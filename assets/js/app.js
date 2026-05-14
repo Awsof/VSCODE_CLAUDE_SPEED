@@ -172,7 +172,7 @@ const AppBootstrap = (() => {
   const _validateModules = () => {
     const required = [
       'StorageEngine', 'UsersManager', 'ProfilesManager', 'GroupsManager',
-      'ScenariosManager', 'ResultsManager', 'SchedulerManager',
+      'ScenariosManager', 'ResultsManager', 'SchedulerManager', 'AuditLogManager',
       'SessionManager', 'RBACManager',
       'LoginScreenManager', 'SidebarManager', 'NotificationsManager', 'ModalManager', 'Renderer',
       'ConfigEngine', 'XMLEngine', 'UtilsEngine', 'RunnerEngine',
