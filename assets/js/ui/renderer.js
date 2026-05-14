@@ -1477,6 +1477,48 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
+  const _exportData = () => {
+    const bundle = {
+      version: 1,
+      exportadoEm: new Date().toISOString(),
+      methods:  MethodsManager.list(),
+      profiles: ProfilesManager.list(),
+      groups:   GroupsManager.list(),
+      users:    UsersManager.list()
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `speed-dbsync-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    AuditLogManager.record('dados:exportar', 'backup', `methods:${bundle.methods.length} profiles:${bundle.profiles.length} groups:${bundle.groups.length} users:${bundle.users.length}`);
+  };
+
+  const _importData = (bundle, mode) => {
+    if (mode === 'replace') {
+      StorageEngine.set('soap_methods', bundle.methods  || []);
+      StorageEngine.set('profiles',     bundle.profiles || []);
+      StorageEngine.set('groups',       bundle.groups   || []);
+      StorageEngine.set('users',        bundle.users    || []);
+    } else {
+      const merge = (storeKey, incoming) => {
+        const current = StorageEngine.get(storeKey, []);
+        const existingIds = new Set(current.map(e => e.id));
+        const toAdd = (incoming || []).filter(e => !existingIds.has(e.id));
+        if (toAdd.length > 0) StorageEngine.set(storeKey, [...current, ...toAdd]);
+      };
+      merge('soap_methods', bundle.methods);
+      merge('profiles',     bundle.profiles);
+      merge('groups',       bundle.groups);
+      merge('users',        bundle.users);
+    }
+    AuditLogManager.record('dados:importar', 'backup', `modo:${mode} methods:${(bundle.methods||[]).length} profiles:${(bundle.profiles||[]).length} groups:${(bundle.groups||[]).length} users:${(bundle.users||[]).length}`);
+    NotificationsManager.success('Importação concluída. A página será recarregada.');
+    setTimeout(() => window.location.reload(), 1500);
+  };
+
   const _renderSettings = () => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
     const allResults = ResultsManager.list();
@@ -1582,6 +1624,35 @@ const Renderer = (() => {
           </table>
         </div>
       </section>
+      ${user.nivel === 'admin' ? `
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Exportar / Importar Dados</h3>
+            <p class="section-subtitle">Migre Métodos, Testes, Grupos e Usuários entre máquinas. Visível apenas para administradores.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <button class="button primary" type="button" id="btn-export-data">Exportar dados</button>
+          <label class="button secondary" style="cursor:pointer;margin:0;">
+            Importar dados
+            <input type="file" id="input-import-file" accept=".json" style="display:none;" />
+          </label>
+        </div>
+        <div id="import-mode-panel" style="display:none;margin-top:16px;padding:16px;border-radius:8px;background:var(--surface-alt,#F3F4F6);border:1px solid var(--border);">
+          <p style="margin:0 0 12px;font-size:0.9rem;font-weight:600;">Arquivo carregado. Como deseja importar?</p>
+          <p style="margin:0 0 16px;font-size:0.83rem;color:var(--text-muted);">
+            <strong>Mesclar</strong> — adiciona entidades novas (por ID); mantém as existentes intactas.<br>
+            <strong>Substituir</strong> — apaga todos os dados atuais e importa os do arquivo.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="button primary" type="button" id="btn-import-merge">Mesclar</button>
+            <button class="button danger" type="button" id="btn-import-replace">Substituir</button>
+            <button class="button secondary" type="button" id="btn-import-cancel">Cancelar</button>
+          </div>
+        </div>
+      </section>
+      ` : ''}
     `;
   };
 
@@ -2083,6 +2154,41 @@ const Renderer = (() => {
         });
       });
     }
+
+    document.getElementById('btn-export-data')?.addEventListener('click', _exportData);
+
+    let _importBundle = null;
+    const importFileInput = document.getElementById('input-import-file');
+    if (importFileInput) {
+      importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            _importBundle = JSON.parse(ev.target.result);
+            const panel = document.getElementById('import-mode-panel');
+            if (panel) panel.style.display = 'block';
+          } catch {
+            NotificationsManager.danger('Arquivo inválido. Selecione um JSON exportado pelo Speed Teste.');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+    }
+
+    document.getElementById('btn-import-merge')?.addEventListener('click', () => {
+      if (_importBundle) _importData(_importBundle, 'merge');
+    });
+    document.getElementById('btn-import-replace')?.addEventListener('click', () => {
+      if (_importBundle) _importData(_importBundle, 'replace');
+    });
+    document.getElementById('btn-import-cancel')?.addEventListener('click', () => {
+      _importBundle = null;
+      const panel = document.getElementById('import-mode-panel');
+      if (panel) panel.style.display = 'none';
+    });
 
     // Filtros de resultados
     const applyFiltersBtn = document.getElementById('btn-apply-filters');
