@@ -150,6 +150,7 @@ const Renderer = (() => {
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
     const methods = MethodsManager.list();
+    const _getMethodName = (methodId) => { const m = methods.find(x => x.id === methodId); return m ? m.nome : null; };
     const limits = RBACManager.getExecutionLimits();
     return `
       <section class="section-card fade-in-up">
@@ -172,6 +173,7 @@ const Renderer = (() => {
                 </div>
                 <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${group?.nome || 'Sem grupo'}</div>
                 <div class="card-list-item-meta">URL: ${profile.url}</div>
+                <div class="card-list-item-meta">Método: ${_getMethodName(profile.methodId) ? `<span style="color:var(--primary,#003761);font-weight:500;">${_getMethodName(profile.methodId)}</span>` : '<span style="color:#DC2626;">⚠ sem método vinculado</span>'}</div>
                 <div class="card-list-item-meta" style="font-size:0.8em;">
                   Código Apoiado: ${profile.codigoApoiado ? `<span style="color:var(--text-muted)">${profile.codigoApoiado}</span>` : '<span style="color:#DC2626">⚠ não configurado</span>'}
                 </div>
@@ -219,14 +221,7 @@ const Renderer = (() => {
               </select>
             </div>
           </label>
-          <label class="field">
-            Método SOAP
-            <select id="test-method-select">
-              <option value="">Selecione um método</option>
-              ${methods.map(m => `<option value="${m.id}">${m.nome}</option>`).join('')}
-            </select>
-            ${methods.length === 0 ? '<small class="field-note" style="color:#DC2626;">Nenhum método cadastrado. Acesse "Métodos SOAP" para cadastrar.</small>' : ''}
-          </label>
+          <div id="exec-method-info" style="grid-column:1/-1;padding:8px 12px;border-radius:6px;background:var(--surface-alt,#F3F4F6);font-size:0.85rem;min-height:32px;display:flex;align-items:center;"></div>
           <label class="field">
             Requisições ${limits.maxRequests < 9999 ? `<span style="font-size:0.78em;color:var(--text-muted);">(máx ${limits.maxRequests})</span>` : ''}
             <input id="test-requests" type="number" min="1" max="${limits.maxRequests}" value="1" />
@@ -961,6 +956,7 @@ const Renderer = (() => {
 
   const _buildProfileModalBody = (profile = null) => {
     const groups = GroupsManager.list();
+    const methods = MethodsManager.list();
     const v = (field, fallback = '') => profile ? (profile[field] ?? fallback) : fallback;
     return `
       <form id="profile-creation-form">
@@ -1002,8 +998,17 @@ const Renderer = (() => {
               ${groups.map(g => `<option value="${g.id}" ${profile?.groupId === g.id ? 'selected' : ''}>${g.nome}</option>`).join('')}
             </select>
           </label>
+          <label class="field" style="grid-column: 1 / -1;">
+            Método SOAP vinculado
+            <select id="profile-method-id">
+              <option value="">Nenhum método selecionado</option>
+              ${methods.map(m => `<option value="${m.id}" ${profile?.methodId === m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}
+            </select>
+            ${methods.length === 0
+              ? '<small class="field-note" style="color:#DC2626;">Nenhum método cadastrado. Acesse "Métodos SOAP" para cadastrar primeiro.</small>'
+              : '<small class="field-note">Selecione o método SOAP que este teste irá usar na execução.</small>'}
+          </label>
         </div>
-        <p style="margin-top:14px;font-size:0.8rem;color:var(--text-muted);">O payload XML e SOAPAction são configurados na aba <strong>Métodos SOAP</strong>.</p>
       </form>
     `;
   };
@@ -1048,6 +1053,7 @@ const Renderer = (() => {
     const url = document.getElementById('profile-url')?.value.trim();
     const version = document.getElementById('profile-version')?.value.trim() || '1.0';
     const groupId = document.getElementById('profile-group-id')?.value || null;
+    const methodId = document.getElementById('profile-method-id')?.value || null;
     const codigoApoiado = document.getElementById('profile-codigo-apoiado')?.value.trim() || null;
     const codigoSenha = document.getElementById('profile-codigo-senha')?.value.trim() || null;
     const color = document.getElementById('profile-color')?.value || '#0F9B94';
@@ -1062,7 +1068,7 @@ const Renderer = (() => {
     if (profileId) {
       result = ProfilesManager.update(profileId, {
         nome: name, codigo: code, url, version,
-        codigoApoiado, codigoSenha, cor: color, groupId
+        codigoApoiado, codigoSenha, cor: color, groupId, methodId
       });
       if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
       AuditLogManager.record('teste:editar', name);
@@ -1070,7 +1076,7 @@ const Renderer = (() => {
     } else {
       result = ProfilesManager.create({
         nome: name, codigo: code, url, version,
-        codigoApoiado, codigoSenha, cor: color, groupId,
+        codigoApoiado, codigoSenha, cor: color, groupId, methodId,
         criadoPor: createdBy
       });
       if (!result) return NotificationsManager.danger(`Falha ao criar perfil. Já existe um perfil com o código "${code.toUpperCase()}". Use um código diferente.`);
@@ -2379,6 +2385,23 @@ const Renderer = (() => {
     });
 
     // --- Radio toggle Teste / Grupo ---
+    const _updateExecMethodInfo = () => {
+      const info = document.getElementById('exec-method-info');
+      if (!info) return;
+      const mode = document.querySelector('input[name="exec-mode"]:checked')?.value || 'teste';
+      if (mode === 'grupo') {
+        info.innerHTML = '<span style="color:var(--text-muted);">Cada teste do grupo usará seu próprio método vinculado.</span>';
+        return;
+      }
+      const profileId = document.getElementById('test-profile-select')?.value;
+      if (!profileId) { info.innerHTML = ''; return; }
+      const profile = ProfilesManager.getById(profileId);
+      const method = profile?.methodId ? MethodsManager.getById(profile.methodId) : null;
+      info.innerHTML = method
+        ? `Método: <strong>${method.nome}</strong>`
+        : '<span style="color:#DC2626;">⚠ Nenhum método vinculado. Edite o teste para configurar.</span>';
+    };
+
     document.querySelectorAll('input[name="exec-mode"]').forEach(radio => {
       radio.addEventListener('change', () => {
         const isGrupo = radio.value === 'grupo';
@@ -2388,8 +2411,12 @@ const Renderer = (() => {
         if (labelEl) labelEl.textContent = isGrupo ? 'Grupo' : 'Teste';
         if (profileDiv) profileDiv.style.display = isGrupo ? 'none' : '';
         if (groupDiv)   groupDiv.style.display   = isGrupo ? '' : 'none';
+        _updateExecMethodInfo();
       });
     });
+
+    const profileSel = document.getElementById('test-profile-select');
+    if (profileSel) profileSel.addEventListener('change', _updateExecMethodInfo);
 
     // --- Painel de Execução (aba Testes) ---
     const startTestBtn = document.getElementById('btn-start-test');
@@ -2398,8 +2425,6 @@ const Renderer = (() => {
     if (startTestBtn) {
       startTestBtn.addEventListener('click', async () => {
         const execMode = document.querySelector('input[name="exec-mode"]:checked')?.value || 'teste';
-        const methodId  = document.getElementById('test-method-select')?.value;
-        if (!methodId) return NotificationsManager.danger('Selecione um método SOAP para iniciar o teste');
 
         const limits = RBACManager.getExecutionLimits();
         const rawRequests    = Number(document.getElementById('test-requests')?.value   || 1);
@@ -2407,9 +2432,6 @@ const Renderer = (() => {
         const timeout        = Number(document.getElementById('test-timeout')?.value     || 120);
         const requests    = Math.min(rawRequests,    limits.maxRequests);
         const concurrency = Math.min(rawConcurrency, limits.maxConcurrency);
-
-        const method = MethodsManager.getById(methodId);
-        if (!method) return;
 
         // Construir lista de perfis a executar
         let profilesToRun = [];
@@ -2440,6 +2462,18 @@ const Renderer = (() => {
           let totalAll = 0;
 
           for (const profile of profilesToRun) {
+            const method = MethodsManager.getById(profile.methodId);
+            if (!method) {
+              if (profilesToRun.length === 1) {
+                NotificationsManager.danger(`Nenhum método vinculado ao teste "${profile.nome}". Edite o teste para vincular um método.`);
+                startTestBtn.disabled = false;
+                if (abortTestBtn) abortTestBtn.disabled = true;
+                return;
+              }
+              NotificationsManager.warning(`Teste "${profile.nome}" sem método vinculado — pulado.`);
+              continue;
+            }
+
             const mergedProfile = {
               ...profile,
               payloadTemplate: method.payloadTemplate,
