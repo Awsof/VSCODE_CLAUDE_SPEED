@@ -518,6 +518,8 @@ const Renderer = (() => {
     const summary = ReportsManager.getSummary();
     const rows = ReportsManager.getRows();
     const allUsers = UsersManager.list();
+    const profiles = ProfilesManager.list();
+    const groups = GroupsManager.list();
     const getUserName = (id) => {
       const u = allUsers.find(u => u.id === id);
       return u ? (u.nome || u.usuario) : (id ? id.slice(0, 8) : '—');
@@ -531,8 +533,31 @@ const Renderer = (() => {
           </div>
           <div class="button-bar">
             <button class="button secondary" type="button" id="btn-export-excel">Exportar Excel</button>
-            <button class="button secondary" type="button" id="btn-export-pdf">Exportar PDF</button>
+            <button class="button primary" type="button" id="btn-export-pdf">Exportar PDF</button>
             <button class="button secondary" type="button" id="btn-export-csv">Exportar CSV</button>
+          </div>
+        </div>
+
+        <div style="padding:14px 0 18px;border-bottom:1px solid var(--border);margin-bottom:18px;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Filtro do Relatório PDF</div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
+              <input type="radio" name="pdf-filter" value="all" checked> Todos os resultados
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
+              <input type="radio" name="pdf-filter" value="profile"> Por Teste
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
+              <input type="radio" name="pdf-filter" value="group"> Por Grupo
+            </label>
+            <select id="pdf-filter-profile-select" style="display:none;">
+              <option value="">Selecione um teste...</option>
+              ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
+            </select>
+            <select id="pdf-filter-group-select" style="display:none;">
+              <option value="">Selecione um grupo...</option>
+              ${groups.map(g => `<option value="${g.id}">${g.nome}</option>`).join('')}
+            </select>
           </div>
         </div>
 
@@ -2268,14 +2293,31 @@ const Renderer = (() => {
     const exportPDFButton = document.getElementById('btn-export-pdf');
     if (exportPDFButton) {
       exportPDFButton.addEventListener('click', () => {
+        const filterType = document.querySelector('input[name="pdf-filter"]:checked')?.value || 'all';
+        const profileId  = document.getElementById('pdf-filter-profile-select')?.value || null;
+        const groupId    = document.getElementById('pdf-filter-group-select')?.value || null;
+        if (filterType === 'profile' && !profileId)
+          return NotificationsManager.warning('Selecione um teste para o relatório PDF.');
+        if (filterType === 'group' && !groupId)
+          return NotificationsManager.warning('Selecione um grupo para o relatório PDF.');
         try {
-          ReportsManager.exportPDF();
+          ReportsManager.exportPDF({ type: filterType, profileId, groupId });
           NotificationsManager.success('Exportação PDF iniciada');
         } catch (error) {
           NotificationsManager.danger('Falha ao exportar PDF: ' + error.message);
         }
       });
     }
+
+    document.querySelectorAll('input[name="pdf-filter"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const currentVal = document.querySelector('input[name="pdf-filter"]:checked')?.value;
+        const profileSel = document.getElementById('pdf-filter-profile-select');
+        const groupSel   = document.getElementById('pdf-filter-group-select');
+        if (profileSel) profileSel.style.display = currentVal === 'profile' ? 'inline-block' : 'none';
+        if (groupSel)   groupSel.style.display   = currentVal === 'group'   ? 'inline-block' : 'none';
+      });
+    });
 
     const exportCSVButton = document.getElementById('btn-export-csv');
     if (exportCSVButton) {

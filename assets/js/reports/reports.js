@@ -93,71 +93,226 @@ const ReportsManager = (() => {
     return file;
   };
 
-  const exportPDF = (filename = null) => {
+  const exportPDF = (options = {}) => {
     const jsPDFConstructor = window.jspdf?.jsPDF || window.jsPDF;
-    if (!jsPDFConstructor) {
-      throw new Error('jsPDF não carregado');
+    if (!jsPDFConstructor) throw new Error('jsPDF não carregado');
+
+    // --- Filtrar resultados ---
+    let results = _getResults();
+    let filterLabel = 'Todos os resultados';
+
+    if (options.type === 'profile' && options.profileId) {
+      results = results.filter(r => r.profileId === options.profileId);
+      const p = ProfilesManager.getById(options.profileId);
+      filterLabel = `Teste: ${p ? p.nome : options.profileId}`;
+    } else if (options.type === 'group' && options.groupId) {
+      const groupProfiles = ProfilesManager.list().filter(p => p.groupId === options.groupId);
+      const ids = new Set(groupProfiles.map(p => p.id));
+      results = results.filter(r => ids.has(r.profileId));
+      const g = GroupsManager.getById(options.groupId);
+      filterLabel = `Grupo: ${g ? g.nome : options.groupId}`;
     }
 
-    const stats = getSummary();
+    const users = UsersManager.list();
+    const getUser = id => users.find(u => u.id === id);
+
+    // --- Stats ---
+    const total = results.length;
+    const successful = results.filter(r => r.success).length;
+    const failed = total - successful;
+    const avgDuration = total > 0
+      ? Math.round(results.reduce((s, r) => s + (r.duration || 0), 0) / total) : 0;
+    const successRate = total > 0 ? `${Math.round((successful / total) * 100)}%` : 'N/A';
+
+    // --- Setup ---
     const doc = new jsPDFConstructor({ orientation: 'landscape', unit: 'pt', format: 'a4' });
     const margin = 40;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const usableW = pageW - margin * 2;
     let y = 50;
 
-    doc.setFontSize(20);
-    doc.text('Relatório Speed Teste DBSync', margin, y);
-    y += 30;
+    // --- Cabeçalho ---
+    doc.setFontSize(20); doc.setTextColor(0, 55, 97);
+    doc.text('Relatório Speed Teste DBSync', margin, y); y += 26;
+    doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, margin, y); y += 14;
+    doc.text(`Filtro: ${filterLabel}`, margin, y); y += 22;
 
-    doc.setFontSize(12);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, margin, y);
-    y += 24;
+    // --- Resumo ---
+    doc.setFontSize(12); doc.setTextColor(30);
+    doc.text('Resumo', margin, y); y += 16;
+    doc.setFontSize(10); doc.setTextColor(60);
+    doc.text(`Execuções: ${total}    Sucesso: ${successful}    Falhas: ${failed}`, margin, y); y += 14;
+    doc.text(`Taxa de sucesso: ${successRate}    Duração média: ${avgDuration} ms`, margin, y); y += 22;
 
-    doc.setFontSize(14);
-    doc.text('Resumo Geral', margin, y);
-    y += 20;
+    // --- Gráficos (lado a lado) ---
+    const chartResults = [...results]
+      .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm))
+      .slice(-40);
 
-    const summaryLines = [
-      `Total de execuções: ${stats.total}`,
-      `Sucesso: ${stats.successful}`,
-      `Falhas: ${stats.failed}`,
-      `Taxa de sucesso: ${stats.successRate}`,
-      `Duração média: ${stats.avgDuration} ms`
+    const buckets = [
+      { label: '0–500ms', min: 0,    max: 500 },
+      { label: '500–1s',  min: 500,  max: 1000 },
+      { label: '1–2s',    min: 1000, max: 2000 },
+      { label: '2–3s',    min: 2000, max: 3000 },
+      { label: '3–5s',    min: 3000, max: 5000 },
+      { label: '>5s',     min: 5000, max: Infinity }
     ];
+    const counts = buckets.map(b =>
+      results.filter(r => (r.duration || 0) >= b.min && (r.duration || 0) < b.max).length
+    );
+    const maxCount = Math.max(...counts, 1);
 
-    summaryLines.forEach(line => {
-      doc.setFontSize(11);
-      doc.text(line, margin, y);
-      y += 16;
+    const cH = 120;
+    const chartTopY = y;
+    const halfW = usableW / 2 - 10;
+
+    // Gráfico A — Linha (esquerda)
+    const cX = margin, cW = halfW;
+    const cBaseY = chartTopY + 14 + cH;
+    doc.setFontSize(8); doc.setTextColor(70);
+    doc.text('A — Tempo de resposta por requisição (ms)', cX, chartTopY);
+
+    if (chartResults.length > 0) {
+      const durations = chartResults.map(r => r.duration || 0);
+      const maxDur = Math.max(...durations, 1);
+
+      doc.setDrawColor(200); doc.setLineWidth(0.5);
+      doc.line(cX, chartTopY + 14, cX, cBaseY);
+      doc.line(cX, cBaseY, cX + cW, cBaseY);
+
+      doc.setFontSize(6.5); doc.setTextColor(130);
+      doc.text(`${maxDur}ms`, cX - 2, chartTopY + 18, { align: 'right' });
+      doc.text('0', cX - 2, cBaseY, { align: 'right' });
+
+      doc.setDrawColor(15, 155, 148); doc.setLineWidth(1.5);
+      let prevPx = null, prevPy = null;
+      durations.forEach((d, i) => {
+        const px = cX + (durations.length === 1 ? cW / 2 : (i / (durations.length - 1)) * cW);
+        const py = chartTopY + 14 + cH - (d / maxDur) * cH * 0.88;
+        if (prevPx !== null) doc.line(prevPx, prevPy, px, py);
+        doc.setFillColor(15, 155, 148);
+        doc.circle(px, py, 2, 'F');
+        prevPx = px; prevPy = py;
+      });
+      doc.setFontSize(6.5); doc.setTextColor(130);
+      doc.text('#1', cX, cBaseY + 9);
+      doc.text(`#${durations.length}`, cX + cW, cBaseY + 9, { align: 'right' });
+    } else {
+      doc.setFontSize(8); doc.setTextColor(160);
+      doc.text('Sem dados', cX + cW / 2, chartTopY + 14 + cH / 2, { align: 'center' });
+    }
+
+    // Gráfico B — Barras (direita)
+    const bX = margin + halfW + 20, bW = halfW;
+    const bBaseY = chartTopY + 14 + cH;
+    doc.setFontSize(8); doc.setTextColor(70);
+    doc.text('B — Distribuição de tempo de resposta (ms)', bX, chartTopY);
+
+    doc.setDrawColor(200); doc.setLineWidth(0.5);
+    doc.line(bX, chartTopY + 14, bX, bBaseY);
+    doc.line(bX, bBaseY, bX + bW, bBaseY);
+
+    const slotW = bW / buckets.length;
+    counts.forEach((c, i) => {
+      const barW = slotW * 0.65;
+      const bBarX = bX + i * slotW + slotW * 0.175;
+      const bBarH = c > 0 ? Math.max((c / maxCount) * cH * 0.88, 3) : 0;
+      if (bBarH > 0) {
+        doc.setFillColor(210, 180, 120);
+        doc.rect(bBarX, bBaseY - bBarH, barW, bBarH, 'F');
+        doc.setFontSize(7); doc.setTextColor(60);
+        doc.text(String(c), bBarX + barW / 2, bBaseY - bBarH - 3, { align: 'center' });
+      }
+      doc.setFontSize(6); doc.setTextColor(110);
+      doc.text(buckets[i].label, bBarX + barW / 2, bBaseY + 9, { align: 'center' });
     });
 
-    y += 10;
-    doc.setFontSize(14);
-    doc.text('Distribuição por Endpoint', margin, y);
-    y += 18;
+    y = Math.max(cBaseY, bBaseY) + 24;
 
-    const headers = ['Endpoint', 'Total', 'Sucesso', 'Falhas', 'Taxa', 'Avg ms'];
-    doc.setFontSize(10);
-    doc.text(headers.join('  '), margin, y);
+    // --- Tabela de Resultados (nova página) ---
+    doc.addPage();
+    y = 50;
+
+    doc.setFontSize(12); doc.setTextColor(0, 55, 97);
+    doc.text('Resultados detalhados', margin, y); y += 18;
+
+    const cols = [
+      { key: 'seq',      label: 'SEQ',       w: 35  },
+      { key: 'endpoint', label: 'Endpoint',   w: 230 },
+      { key: 'status',   label: 'Status',     w: 45  },
+      { key: 'tag',      label: 'TAG',        w: 90  },
+      { key: 'dur',      label: 'Duração',    w: 65  },
+      { key: 'user',     label: 'Usuário',    w: 85  },
+      { key: 'date',     label: 'Data/Hora',  w: 125 }
+    ];
+
+    // Cabeçalho da tabela
+    doc.setFontSize(8.5); doc.setFillColor(0, 55, 97); doc.setTextColor(255, 255, 255);
+    let cx = margin;
+    cols.forEach(c => {
+      doc.rect(cx, y, c.w, 16, 'F');
+      doc.text(c.label, cx + 4, y + 11);
+      cx += c.w;
+    });
     y += 16;
 
-    stats.byEndpoint.forEach(item => {
-      if (y > 520) {
+    // Linhas de resultado (mais recentes primeiro)
+    const sorted = [...results].sort((a, b) => new Date(b.executadoEm) - new Date(a.executadoEm));
+    sorted.forEach((r, idx) => {
+      if (y > pageH - 50) {
         doc.addPage();
         y = 50;
+        // Repetir cabeçalho
+        doc.setFontSize(8.5); doc.setFillColor(0, 55, 97); doc.setTextColor(255, 255, 255);
+        cx = margin;
+        cols.forEach(c => {
+          doc.rect(cx, y, c.w, 16, 'F');
+          doc.text(c.label, cx + 4, y + 11);
+          cx += c.w;
+        });
+        y += 16;
       }
-      const row = [
-        item.endpoint,
-        String(item.total),
-        String(item.success),
-        String(item.failed),
-        item.successRate,
-        String(item.avgDuration)
-      ];
-      doc.text(row.join('  '), margin, y);
+
+      const u = getUser(r.executadoPor);
+      const row = {
+        seq:      String(r.seq || ''),
+        endpoint: r.endpoint || '—',
+        status:   r.success ? 'OK' : 'ERRO',
+        tag:      r.numAtendimentoDB || '—',
+        dur:      `${r.duration || 0} ms`,
+        user:     u ? (u.nome || u.usuario) : (r.executadoPor || '—'),
+        date:     new Date(r.executadoEm).toLocaleString('pt-BR')
+      };
+
+      if (idx % 2 === 0) doc.setFillColor(244, 246, 250);
+      else               doc.setFillColor(255, 255, 255);
+      const rowW = cols.reduce((s, c) => s + c.w, 0);
+      doc.rect(margin, y, rowW, 14, 'F');
+
+      doc.setFontSize(8);
+      if (r.success) doc.setTextColor(30, 30, 30);
+      else           doc.setTextColor(180, 30, 30);
+
+      cx = margin;
+      cols.forEach(c => {
+        let val = String(row[c.key] || '');
+        if (c.key === 'endpoint' && val.length > 36) val = val.slice(0, 35) + '…';
+        if (c.key === 'user'     && val.length > 14) val = val.slice(0, 13) + '…';
+        doc.text(val, cx + 4, y + 10);
+        cx += c.w;
+      });
       y += 14;
     });
 
-    const file = filename || `speed-teste-dbsync-relatorio-${new Date().toISOString().slice(0, 10)}.pdf`;
+    if (sorted.length === 0) {
+      doc.setFontSize(10); doc.setTextColor(160);
+      doc.text('Nenhum resultado encontrado para o filtro selecionado.', margin, y);
+    }
+
+    const tag = options.type === 'profile' ? '-teste' : options.type === 'group' ? '-grupo' : '';
+    const file = `speed-dbsync-relatorio${tag}-${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(file);
     return file;
   };
