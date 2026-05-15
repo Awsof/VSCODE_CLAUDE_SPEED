@@ -1700,26 +1700,45 @@ const Renderer = (() => {
         const _mtMedian = _mtDurs.length % 2 === 0
           ? Math.round((_mtDurs[_mtMid - 1] + _mtDurs[_mtMid]) / 2)
           : _mtDurs[_mtMid];
+        const _mtProfileColors = [
+          { border: 'rgba(15,155,148,0.9)',  bg: 'rgba(15,155,148,0.12)'  },
+          { border: 'rgba(99,102,241,0.9)',  bg: 'rgba(99,102,241,0.12)'  },
+          { border: 'rgba(234,88,12,0.9)',   bg: 'rgba(234,88,12,0.12)'   },
+          { border: 'rgba(220,38,127,0.9)',  bg: 'rgba(220,38,127,0.12)'  },
+          { border: 'rgba(22,163,74,0.9)',   bg: 'rgba(22,163,74,0.12)'   },
+          { border: 'rgba(202,138,4,0.9)',   bg: 'rgba(202,138,4,0.12)'   },
+        ];
+        const _mtProfilesById = {};
+        ProfilesManager.list().forEach(p => { _mtProfilesById[p.id] = p.nome; });
+        const _mtUniqueIds = [...new Set(lastTestResults.map(r => r.profileId))];
+        const _mtHasMultiple = _mtUniqueIds.length > 1;
+        const _mtProfileDatasets = _mtUniqueIds.map((pid, ci) => {
+          const col = _mtProfileColors[ci % _mtProfileColors.length];
+          return {
+            label: _mtProfilesById[pid] || pid.slice(0, 8),
+            data: lastTestResults.map(r => r.profileId === pid ? r.duration : null),
+            borderColor: col.border,
+            backgroundColor: col.bg,
+            fill: !_mtHasMultiple,
+            tension: 0.3,
+            pointRadius: lastTestResults.length > 50 ? 2 : 4,
+            spanGaps: false,
+            order: ci + 1
+          };
+        });
         state.chartRefs['manual-timeline'] = new Chart(
           document.getElementById('chart-manual-timeline').getContext('2d'), {
             type: 'line',
             data: {
-              labels: lastTestResults.map((_, i) => `#${i + 1}`),
+              labels: lastTestResults.map(r =>
+                new Date(r.executadoEm).toLocaleTimeString('pt-BR', { hour12: false })
+              ),
               datasets: [
-                {
-                  label: 'Tempo (ms)',
-                  data: lastTestResults.map(r => r.duration),
-                  borderColor: 'rgba(15, 155, 148, 0.9)',
-                  backgroundColor: 'rgba(15, 155, 148, 0.1)',
-                  fill: true,
-                  tension: 0.3,
-                  pointRadius: lastTestResults.length > 50 ? 2 : 4,
-                  order: 1
-                },
+                ..._mtProfileDatasets,
                 {
                   label: `Mediana: ${_mtMedian}ms`,
                   data: lastTestResults.map(() => _mtMedian),
-                  borderColor: 'rgba(220, 100, 30, 0.85)',
+                  borderColor: 'rgba(100,100,100,0.75)',
                   borderWidth: 1.5,
                   borderDash: [6, 4],
                   pointRadius: 0,
@@ -1731,6 +1750,16 @@ const Renderer = (() => {
             },
             options: {
               plugins: {
+                tooltip: {
+                  filter: (item) => item.parsed.y !== null,
+                  callbacks: {
+                    label: (ctx) => {
+                      const r = lastTestResults[ctx.dataIndex];
+                      const dt = r ? new Date(r.executadoEm).toLocaleString('pt-BR') : '';
+                      return `${ctx.dataset.label}: ${ctx.parsed.y}ms — ${dt}`;
+                    }
+                  }
+                },
                 legend: {
                   display: true,
                   labels: { boxWidth: 24, font: { size: 11 }, color: 'var(--text-muted)' }
@@ -1738,7 +1767,7 @@ const Renderer = (() => {
               },
               scales: {
                 y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
-                x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
+                x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20, maxRotation: 45 } }
               },
               responsive: true,
               maintainAspectRatio: false
@@ -1941,25 +1970,44 @@ const Renderer = (() => {
         const _daMedian = _daDurs.length % 2 === 0
           ? Math.round((_daDurs[_daMid - 1] + _daDurs[_daMid]) / 2)
           : _daDurs[_daMid];
+        const _daProfileColors = [
+          { border: 'rgba(15,155,148,0.9)',  bg: 'rgba(15,155,148,0.12)'  },
+          { border: 'rgba(99,102,241,0.9)',  bg: 'rgba(99,102,241,0.12)'  },
+          { border: 'rgba(234,88,12,0.9)',   bg: 'rgba(234,88,12,0.12)'   },
+          { border: 'rgba(220,38,127,0.9)',  bg: 'rgba(220,38,127,0.12)'  },
+          { border: 'rgba(22,163,74,0.9)',   bg: 'rgba(22,163,74,0.12)'   },
+          { border: 'rgba(202,138,4,0.9)',   bg: 'rgba(202,138,4,0.12)'   },
+        ];
+        const _daProfilesById = {};
+        ProfilesManager.list().forEach(p => { _daProfilesById[p.id] = p.nome; });
+        const _daUniqueIds = [...new Set(lastTestResults.map(r => r.profileId))];
+        const _daHasMultiple = _daUniqueIds.length > 1;
+        const _daProfileDatasets = _daUniqueIds.map((pid, ci) => {
+          const col = _daProfileColors[ci % _daProfileColors.length];
+          return {
+            label: _daProfilesById[pid] || pid.slice(0, 8),
+            data: lastTestResults.map(r => r.profileId === pid ? r.duration : null),
+            borderColor: col.border,
+            backgroundColor: col.bg,
+            fill: !_daHasMultiple,
+            tension: 0.3,
+            pointRadius: lastTestResults.length > 50 ? 2 : 4,
+            spanGaps: false,
+            order: ci + 1
+          };
+        });
         state.chartRefs['dash-ma'] = new Chart(canvasA.getContext('2d'), {
           type: 'line',
           data: {
-            labels: lastTestResults.map((_, i) => `#${i + 1}`),
+            labels: lastTestResults.map(r =>
+              new Date(r.executadoEm).toLocaleTimeString('pt-BR', { hour12: false })
+            ),
             datasets: [
-              {
-                label: 'Tempo (ms)',
-                data: lastTestResults.map(r => r.duration),
-                borderColor: 'rgba(15, 155, 148, 0.9)',
-                backgroundColor: 'rgba(15, 155, 148, 0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: lastTestResults.length > 50 ? 2 : 4,
-                order: 1
-              },
+              ..._daProfileDatasets,
               {
                 label: `Mediana: ${_daMedian}ms`,
                 data: lastTestResults.map(() => _daMedian),
-                borderColor: 'rgba(220, 100, 30, 0.85)',
+                borderColor: 'rgba(100,100,100,0.75)',
                 borderWidth: 1.5,
                 borderDash: [6, 4],
                 pointRadius: 0,
@@ -1971,6 +2019,16 @@ const Renderer = (() => {
           },
           options: {
             plugins: {
+              tooltip: {
+                filter: (item) => item.parsed.y !== null,
+                callbacks: {
+                  label: (ctx) => {
+                    const r = lastTestResults[ctx.dataIndex];
+                    const dt = r ? new Date(r.executadoEm).toLocaleString('pt-BR') : '';
+                    return `${ctx.dataset.label}: ${ctx.parsed.y}ms — ${dt}`;
+                  }
+                }
+              },
               legend: {
                 display: true,
                 labels: { boxWidth: 24, font: { size: 11 }, color: 'var(--text-muted)' }
@@ -1978,7 +2036,7 @@ const Renderer = (() => {
             },
             scales: {
               y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
-              x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
+              x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20, maxRotation: 45 } }
             },
             responsive: true,
             maintainAspectRatio: false
