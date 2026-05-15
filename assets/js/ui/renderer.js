@@ -643,7 +643,6 @@ const Renderer = (() => {
   const _buildScheduleModalBody = (schedule = null) => {
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
-    const methods = MethodsManager.list();
     const ag = schedule?.agendamento || {};
     const cfg = schedule?.config || {};
     const selectedProfileIds = schedule?.profileIds || [];
@@ -667,15 +666,8 @@ const Renderer = (() => {
           <label class="field">
             Tipo de execução
             <select id="schedule-target-type">
-              <option value="profiles" ${!targetIsGroup ? 'selected' : ''}>Perfis</option>
+              <option value="profiles" ${!targetIsGroup ? 'selected' : ''}>Testes</option>
               <option value="groups"   ${targetIsGroup  ? 'selected' : ''}>Grupo</option>
-            </select>
-          </label>
-          <label class="field" id="schedule-method-label" style="${targetIsGroup ? 'display:none;' : ''}">
-            Método SOAP
-            <select id="schedule-method-id">
-              <option value="">Selecione um método</option>
-              ${methods.map(m => `<option value="${m.id}" ${cfg.methodId === m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}
             </select>
           </label>
           <label class="field" id="schedule-group-label" style="${!targetIsGroup ? 'display:none;' : ''}">
@@ -774,18 +766,15 @@ const Renderer = (() => {
     const targetType = document.getElementById('schedule-target-type');
     const groupLabel    = document.getElementById('schedule-group-label');
     const profilesLabel = document.getElementById('schedule-profiles-label');
-    const methodLabel   = document.getElementById('schedule-method-label');
 
     const updateTargetFields = () => {
       if (!targetType) return;
       if (targetType.value === 'groups') {
         if (groupLabel)    groupLabel.style.display    = 'block';
         if (profilesLabel) profilesLabel.style.display = 'none';
-        if (methodLabel)   methodLabel.style.display   = 'none';
       } else {
         if (groupLabel)    groupLabel.style.display    = 'none';
         if (profilesLabel) profilesLabel.style.display = 'block';
-        if (methodLabel)   methodLabel.style.display   = '';
       }
     };
 
@@ -837,7 +826,6 @@ const Renderer = (() => {
     const name = document.getElementById('schedule-name')?.value.trim();
     const description = document.getElementById('schedule-description')?.value.trim();
     const targetType = document.getElementById('schedule-target-type')?.value;
-    const methodId = document.getElementById('schedule-method-id')?.value || null;
     const isRecorrente = document.getElementById('sched-mode-recorrente')?.checked;
     const startDate = isRecorrente ? null : (document.getElementById('schedule-start-date')?.value || null);
     const endDate = isRecorrente ? null : (document.getElementById('schedule-end-date')?.value || null);
@@ -865,10 +853,6 @@ const Renderer = (() => {
       return NotificationsManager.danger('Nome do agendamento é obrigatório');
     }
 
-    if (!methodId && targetType !== 'groups') {
-      return NotificationsManager.danger('Selecione um método SOAP para o agendamento');
-    }
-
     if (profileIds.length === 0) {
       return NotificationsManager.danger('Selecione ao menos um perfil para o agendamento');
     }
@@ -888,7 +872,7 @@ const Renderer = (() => {
       cenarioId: null,
       groupId,
       profileIds,
-      config: { requestsPerProfile, concurrency, timeout, methodId },
+      config: { requestsPerProfile, concurrency, timeout },
       agendamento: { dataInicio: startDate, dataFim: endDate, horaInicio: startTime, horaFim: endTime, frequenciaMinutos: frequency, diasSemana: days },
       ativo: true
     };
