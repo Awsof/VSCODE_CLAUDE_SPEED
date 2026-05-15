@@ -1711,23 +1711,47 @@ const Renderer = (() => {
     if (document.getElementById('chart-manual-timeline')) {
       _resetChart('manual-timeline');
       if (lastTestResults.length > 0) {
+        const _mtDurs = [...lastTestResults.map(r => r.duration || 0)].sort((a, b) => a - b);
+        const _mtMid  = Math.floor(_mtDurs.length / 2);
+        const _mtMedian = _mtDurs.length % 2 === 0
+          ? Math.round((_mtDurs[_mtMid - 1] + _mtDurs[_mtMid]) / 2)
+          : _mtDurs[_mtMid];
         state.chartRefs['manual-timeline'] = new Chart(
           document.getElementById('chart-manual-timeline').getContext('2d'), {
             type: 'line',
             data: {
               labels: lastTestResults.map((_, i) => `#${i + 1}`),
-              datasets: [{
-                label: 'Tempo (ms)',
-                data: lastTestResults.map(r => r.duration),
-                borderColor: 'rgba(15, 155, 148, 0.9)',
-                backgroundColor: 'rgba(15, 155, 148, 0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: lastTestResults.length > 50 ? 2 : 4
-              }]
+              datasets: [
+                {
+                  label: 'Tempo (ms)',
+                  data: lastTestResults.map(r => r.duration),
+                  borderColor: 'rgba(15, 155, 148, 0.9)',
+                  backgroundColor: 'rgba(15, 155, 148, 0.1)',
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: lastTestResults.length > 50 ? 2 : 4,
+                  order: 1
+                },
+                {
+                  label: `Mediana: ${_mtMedian}ms`,
+                  data: lastTestResults.map(() => _mtMedian),
+                  borderColor: 'rgba(220, 100, 30, 0.85)',
+                  borderWidth: 1.5,
+                  borderDash: [6, 4],
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0,
+                  order: 0
+                }
+              ]
             },
             options: {
-              plugins: { legend: { display: false } },
+              plugins: {
+                legend: {
+                  display: true,
+                  labels: { boxWidth: 24, font: { size: 11 }, color: 'var(--text-muted)' }
+                }
+              },
               scales: {
                 y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
                 x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
@@ -1928,22 +1952,46 @@ const Renderer = (() => {
     if (canvasA) {
       _resetChart('dash-ma');
       if (lastTestResults.length > 0) {
+        const _daDurs = [...lastTestResults.map(r => r.duration || 0)].sort((a, b) => a - b);
+        const _daMid  = Math.floor(_daDurs.length / 2);
+        const _daMedian = _daDurs.length % 2 === 0
+          ? Math.round((_daDurs[_daMid - 1] + _daDurs[_daMid]) / 2)
+          : _daDurs[_daMid];
         state.chartRefs['dash-ma'] = new Chart(canvasA.getContext('2d'), {
           type: 'line',
           data: {
             labels: lastTestResults.map((_, i) => `#${i + 1}`),
-            datasets: [{
-              label: 'Tempo (ms)',
-              data: lastTestResults.map(r => r.duration),
-              borderColor: 'rgba(15, 155, 148, 0.9)',
-              backgroundColor: 'rgba(15, 155, 148, 0.1)',
-              fill: true,
-              tension: 0.3,
-              pointRadius: lastTestResults.length > 50 ? 2 : 4
-            }]
+            datasets: [
+              {
+                label: 'Tempo (ms)',
+                data: lastTestResults.map(r => r.duration),
+                borderColor: 'rgba(15, 155, 148, 0.9)',
+                backgroundColor: 'rgba(15, 155, 148, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: lastTestResults.length > 50 ? 2 : 4,
+                order: 1
+              },
+              {
+                label: `Mediana: ${_daMedian}ms`,
+                data: lastTestResults.map(() => _daMedian),
+                borderColor: 'rgba(220, 100, 30, 0.85)',
+                borderWidth: 1.5,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                fill: false,
+                tension: 0,
+                order: 0
+              }
+            ]
           },
           options: {
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: {
+                display: true,
+                labels: { boxWidth: 24, font: { size: 11 }, color: 'var(--text-muted)' }
+              }
+            },
             scales: {
               y: { beginAtZero: true, ticks: { color: 'var(--text-muted)' } },
               x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 20 } }
