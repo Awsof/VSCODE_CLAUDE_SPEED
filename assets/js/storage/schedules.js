@@ -167,11 +167,16 @@ const SchedulerManager = (() => {
     const schedule = getById(scheduleId);
     if (!schedule) return;
 
+    const executedAt = new Date().toISOString();
+    // Ancora a próxima execução no horário planejado, não no momento de conclusão,
+    // para evitar deriva acumulada quando a execução demora vários segundos.
+    const anchor = schedule.proximaExecucao || executedAt;
+
     const updated = {
       ...schedule,
-      ultimaExecucao: new Date().toISOString(),
+      ultimaExecucao: executedAt,
       proximaExecucao: schedule.agendamento
-        ? _calculateNextExecutionFromWindow({ ...schedule, ultimaExecucao: new Date().toISOString() })
+        ? _calculateNextExecutionFromWindow({ ...schedule, ultimaExecucao: anchor })
         : _calculateNextExecutionFromCron(schedule.cron)
     };
 

@@ -1884,38 +1884,41 @@ const Renderer = (() => {
     // Construir conjunto global de labels (eixo X unificado por timestamp)
     const allLabels = [...new Set(allResults.map(r => formatLabel(r.executadoEm)))];
 
+    const profileNames = {};
+    ProfilesManager.list().forEach(p => { profileNames[p.id] = p.nome; });
+
     const datasets = [];
+    let _colorIdx = 0;
     scheduleIds.forEach((sid, idx) => {
-      const color = _CHART_PALETTE[idx % _CHART_PALETTE.length];
       const scheduleResults = allResults.filter(r => r.scheduleId === sid);
       const schedule = schedules.find(s => s.id === sid);
       const scheduleName = schedule ? schedule.nome : `Agendamento ${idx + 1}`;
-      const durations = scheduleResults.map(r => r.duration);
-      const medianVal = _median(durations);
 
-      // Dataset principal — linha de duração
-      datasets.push({
-        label: scheduleName,
-        data: scheduleResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
-        borderColor: color.line,
-        backgroundColor: color.fill,
-        fill: false,
-        tension: 0.3,
-        pointRadius: scheduleResults.length > 50 ? 2 : 4,
-        borderWidth: 2
-      });
+      const uniqueProfileIds = [...new Set(scheduleResults.map(r => r.profileId).filter(Boolean))];
 
-      // Dataset mediana — linha tracejada
-      datasets.push({
-        label: `${scheduleName} (mediana: ${medianVal}ms)`,
-        data: scheduleResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
-        borderColor: color.line,
-        backgroundColor: 'transparent',
-        fill: false,
-        tension: 0,
-        pointRadius: 0,
-        borderWidth: 1.5,
-        borderDash: [6, 4]
+      uniqueProfileIds.forEach(pid => {
+        const color = _CHART_PALETTE[_colorIdx % _CHART_PALETTE.length];
+        _colorIdx++;
+        const pResults = scheduleResults.filter(r => r.profileId === pid);
+        const profileLabel = profileNames[pid] || pid.slice(0, 8);
+        const label = uniqueProfileIds.length > 1
+          ? `${scheduleName} — ${profileLabel}`
+          : scheduleName;
+        const medianVal = _median(pResults.map(r => r.duration));
+
+        datasets.push({
+          label: label,
+          data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+          borderColor: color.line, backgroundColor: color.fill,
+          fill: false, tension: 0.3,
+          pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
+        });
+        datasets.push({
+          label: `${label} (mediana: ${medianVal}ms)`,
+          data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+          borderColor: color.line, backgroundColor: 'transparent',
+          fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
+        });
       });
     });
 
@@ -2108,24 +2111,36 @@ const Renderer = (() => {
 
       const scheduleIds = [...new Set(allResults.map(r => r.scheduleId).filter(Boolean))];
       const schedules = SchedulerManager.list();
+      const _dashProfileNames = {};
+      ProfilesManager.list().forEach(p => { _dashProfileNames[p.id] = p.nome; });
       const datasets = [];
+      let _dashColorIdx = 0;
       scheduleIds.forEach((sid, idx) => {
-        const color = _CHART_PALETTE[idx % _CHART_PALETTE.length];
         const sResults = allResults.filter(r => r.scheduleId === sid);
         const sched = schedules.find(s => s.id === sid);
-        const name = sched ? sched.nome : `Agendamento ${idx + 1}`;
-        const medianVal = _median(sResults.map(r => r.duration));
-        datasets.push({
-          label: name,
-          data: sResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
-          borderColor: color.line, backgroundColor: color.fill, fill: false, tension: 0.3,
-          pointRadius: sResults.length > 50 ? 2 : 4, borderWidth: 2
-        });
-        datasets.push({
-          label: `${name} (mediana: ${medianVal}ms)`,
-          data: sResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
-          borderColor: color.line, backgroundColor: 'transparent', fill: false, tension: 0,
-          pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
+        const scheduleName = sched ? sched.nome : `Agendamento ${idx + 1}`;
+        const uniqueProfileIds = [...new Set(sResults.map(r => r.profileId).filter(Boolean))];
+        uniqueProfileIds.forEach(pid => {
+          const color = _CHART_PALETTE[_dashColorIdx % _CHART_PALETTE.length];
+          _dashColorIdx++;
+          const pResults = sResults.filter(r => r.profileId === pid);
+          const profileLabel = _dashProfileNames[pid] || pid.slice(0, 8);
+          const label = uniqueProfileIds.length > 1
+            ? `${scheduleName} — ${profileLabel}`
+            : scheduleName;
+          const medianVal = _median(pResults.map(r => r.duration));
+          datasets.push({
+            label: label,
+            data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+            borderColor: color.line, backgroundColor: color.fill, fill: false, tension: 0.3,
+            pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
+          });
+          datasets.push({
+            label: `${label} (mediana: ${medianVal}ms)`,
+            data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+            borderColor: color.line, backgroundColor: 'transparent', fill: false, tension: 0,
+            pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
+          });
         });
       });
 
