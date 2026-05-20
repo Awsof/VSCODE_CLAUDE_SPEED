@@ -69,13 +69,19 @@ const Renderer = (() => {
         </div>
 
         <div id="dash-charts-manual">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="button small primary"   id="dash-manual-filter-last" type="button">Última Execução</button>
+            <button class="button small secondary" id="dash-manual-filter-10"   type="button">10 últimas</button>
+            <button class="button small secondary" id="dash-manual-filter-50"   type="button">50 últimas</button>
+            <button class="button small secondary" id="dash-manual-filter-100"  type="button">100 últimas</button>
+          </div>
           <div class="wide-panel">
             <div class="chart-card fade-in-up">
-              <div class="chart-title">A — Tempo de resposta por requisição (última execução)</div>
+              <div class="chart-title">A — Tempo de resposta por requisição</div>
               <div class="chart-canvas"><canvas id="chart-dash-ma"></canvas></div>
             </div>
             <div class="chart-card fade-in-up">
-              <div class="chart-title">B — Distribuição de tempo de resposta (ms)</div>
+              <div class="chart-title">B — Distribuição de tempo de resposta por perfil (ms)</div>
               <div class="chart-canvas"><canvas id="chart-dash-mb"></canvas></div>
             </div>
           </div>
@@ -1961,8 +1967,17 @@ const Renderer = (() => {
     });
   };
 
-  const _initializeDashboardManualCharts = () => {
-    const lastTestResults = _getLastTestResults();
+  const _getManualResultsByFilter = (filter = 'last') => {
+    if (filter === 'last') return _getLastTestResults();
+    const allManual = ResultsManager.list()
+      .filter(r => r.origem === 'manual')
+      .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+    if (allManual.length === 0) return [];
+    return allManual.slice(-parseInt(filter, 10));
+  };
+
+  const _initializeDashboardManualCharts = (filter = 'last') => {
+    const lastTestResults = _getManualResultsByFilter(filter);
 
     const canvasA = document.getElementById('chart-dash-ma');
     if (canvasA) {
@@ -2052,8 +2067,8 @@ const Renderer = (() => {
     if (canvasB) {
       _resetChart('dash-mb');
       if (lastTestResults.length > 0) {
-        const durations = lastTestResults.map(r => r.duration || 0);
-        const maxDur = Math.max(...durations);
+        const allDurations = lastTestResults.map(r => r.duration || 0);
+        const maxDur = Math.max(...allDurations);
         let bucketBounds;
         if (maxDur <= 1000)       bucketBounds = [0, 100, 200, 300, 500, 750, 1000];
         else if (maxDur <= 5000)  bucketBounds = [0, 500, 1000, 2000, 3000, 5000];
@@ -2061,21 +2076,45 @@ const Renderer = (() => {
         else                      bucketBounds = [0, 2000, 5000, 10000, 20000, 30000, maxDur + 1];
 
         const bucketLabels = [];
-        const bucketCounts = [];
         for (let i = 0; i < bucketBounds.length - 1; i++) {
-          const lo = bucketBounds[i];
-          const hi = bucketBounds[i + 1];
-          bucketLabels.push(`${lo}–${hi}ms`);
-          bucketCounts.push(durations.filter(d => d >= lo && d < hi).length);
+          bucketLabels.push(`${bucketBounds[i]}–${bucketBounds[i + 1]}ms`);
         }
+
+        const _mbProfileColors = [
+          { border: 'rgba(15,155,148,0.9)',  bg: 'rgba(15,155,148,0.65)'  },
+          { border: 'rgba(99,102,241,0.9)',  bg: 'rgba(99,102,241,0.65)'  },
+          { border: 'rgba(234,88,12,0.9)',   bg: 'rgba(234,88,12,0.65)'   },
+          { border: 'rgba(220,38,127,0.9)',  bg: 'rgba(220,38,127,0.65)'  },
+          { border: 'rgba(22,163,74,0.9)',   bg: 'rgba(22,163,74,0.65)'   },
+          { border: 'rgba(202,138,4,0.9)',   bg: 'rgba(202,138,4,0.65)'   },
+        ];
+        const _mbProfilesById = {};
+        ProfilesManager.list().forEach(p => { _mbProfilesById[p.id] = p.nome; });
+        const _mbUniqueIds = [...new Set(lastTestResults.map(r => r.profileId))];
+
+        const datasetsB = _mbUniqueIds.map((pid, idx) => {
+          const col = _mbProfileColors[idx % _mbProfileColors.length];
+          const profileDurations = lastTestResults.filter(r => r.profileId === pid).map(r => r.duration || 0);
+          const counts = [];
+          for (let i = 0; i < bucketBounds.length - 1; i++) {
+            const lo = bucketBounds[i], hi = bucketBounds[i + 1];
+            counts.push(profileDurations.filter(d => d >= lo && d < hi).length);
+          }
+          return {
+            label: _mbProfilesById[pid] || pid.slice(0, 8),
+            data: counts,
+            backgroundColor: col.bg,
+            borderColor: 'transparent'
+          };
+        });
+
         state.chartRefs['dash-mb'] = new Chart(canvasB.getContext('2d'), {
           type: 'bar',
-          data: {
-            labels: bucketLabels,
-            datasets: [{ label: 'Requisições', data: bucketCounts, backgroundColor: 'rgba(196, 155, 60, 0.65)', borderColor: 'transparent' }]
-          },
+          data: { labels: bucketLabels, datasets: datasetsB },
           options: {
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: { display: _mbUniqueIds.length > 1, labels: { boxWidth: 18, font: { size: 11 }, color: 'var(--text-muted)' } }
+            },
             scales: {
               y: { beginAtZero: true, ticks: { color: 'var(--text-muted)', stepSize: 1 }, title: { display: true, text: 'Qtd requisições', color: 'var(--text-muted)' } },
               x: { ticks: { color: 'var(--text-muted)' }, title: { display: true, text: 'Faixa de tempo', color: 'var(--text-muted)' } }
@@ -2086,6 +2125,12 @@ const Renderer = (() => {
         });
       }
     }
+
+    // Atualizar botões de filtro
+    ['last', '10', '50', '100'].forEach(f => {
+      const b = document.getElementById(`dash-manual-filter-${f}`);
+      if (b) b.className = `button small ${f === filter ? 'primary' : 'secondary'}`;
+    });
   };
 
   const _initializeDashboardScheduleCharts = (filter = 'day') => {
@@ -2242,6 +2287,12 @@ const Renderer = (() => {
         setTimeout(() => _initializeDashboardScheduleCharts('day'), 50);
       });
     }
+
+    // Dashboard: filtros dos gráficos manuais A e B
+    ['last', '10', '50', '100'].forEach(f => {
+      const btn = document.getElementById(`dash-manual-filter-${f}`);
+      if (btn) btn.addEventListener('click', () => _initializeDashboardManualCharts(f));
+    });
 
     // Dashboard: filtros do gráfico de agendados
     ['hour', 'day', 'week', 'month'].forEach(f => {

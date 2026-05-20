@@ -35,7 +35,7 @@
 
 | Componente | Status | Linhas | Descrição |
 |-----------|--------|--------|-----------|
-| `auth/session.js` | ✅ | 200 | Login/logout, 8h timeout, eventos |
+| `auth/session.js` | ✅ | 200 | Login/logout, timeout 30min inatividade, eventos |
 | `auth/rbac.js` | ✅ | 250 | 60+ recursos, 3 níveis, verificações |
 | `ui/login-screen.js` | ✅ | 350 | Duas telas (login + first-access) |
 | `app.js` (orchestration) | ✅ | 200 | Bootstrap, validação de módulos |
@@ -45,7 +45,7 @@
 - ✅ Autenticação com SHA-256
 - ✅ 3 níveis: admin, operador, visualizador
 - ✅ 60+ permissões granulares
-- ✅ Sessão 8h com notificação 5min antes
+- ✅ Sessão com timeout de 30min de inatividade e notificação 5min antes
 - ✅ First-access bootstrap automático
 
 ---

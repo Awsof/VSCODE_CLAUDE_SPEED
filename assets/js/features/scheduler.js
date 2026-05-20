@@ -78,6 +78,12 @@ const ScheduleRunner = (() => {
    * Checar e executar agendamentos vencidos
    */
   const _checkAndExecuteDue = async () => {
+    // Mantém a sessão viva enquanto há agendamentos ativos, evitando expiração por inatividade
+    const hasActiveSchedules = SchedulerManager.list().some(s => s.ativo);
+    if (hasActiveSchedules && typeof SessionManager !== 'undefined') {
+      SessionManager.updateActivity();
+    }
+
     const dueSchedules = SchedulerManager.getDue();
 
     if (dueSchedules.length === 0) {
