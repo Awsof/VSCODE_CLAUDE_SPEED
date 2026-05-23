@@ -1,7 +1,7 @@
 # Fase 6 — Reports Layer — Documentação
 
 **Status:** ✅ CONCLUÍDA  
-**Data:** 2026-05-10  
+**Data:** 2026-05-10 (atualizado: 2026-05-23)  
 **Dependência:** Fases 1-5 (Storage, Auth, UI, Engine, Features)
 
 ---
@@ -10,15 +10,15 @@
 
 Fase 6 entrega o módulo de relatórios do STP·SOAP v3 com:
 - ✅ Exportação para Excel (.xlsx)
-- ✅ Exportação para PDF (.pdf)
+- ✅ Exportação para HTML (relatório visual com gráficos, otimizado para impressão via browser)
 - ✅ Exportação para CSV (.csv)
-- ✅ Resumo por endpoint e por status
+- ✅ Resumo por teste (`byTest`, agrupado por `profileId` → nome do teste)
 - ✅ UI dedicada para relatórios
 - ✅ Integração com `ResultsManager`
 
 ---
 
-## 📁 Arquivo Criado
+## 📁 Arquivo
 
 ### `assets/js/reports/reports.js`
 
@@ -26,48 +26,43 @@ Fase 6 entrega o módulo de relatórios do STP·SOAP v3 com:
 
 **Opções de exportação:**
 - `exportExcel(filename)` — gera arquivo `XLSX`
-- `exportPDF(filename)` — gera arquivo `PDF`
+- `exportHTML(options)` — abre relatório HTML em nova aba (Blob URL)
 - `exportCSV(filename)` — gera arquivo `CSV`
 
 **Dados usados:**
 - `ResultsManager.list()`
-- `ResultsManager.getStats()`
+- `ProfilesManager.list()` — para resolução do nome do teste por `profileId`
 
 ---
 
-## 🚀 Funcionalidades Implementadas
+## 🚀 Funcionalidades
 
 ### 1. Sumário de resultados
 
 `ReportsManager.getSummary()` retorna:
-- total de execuções
-- número de sucessos e falhas
-- taxa de sucesso
-- duração média
-- distribuição por endpoint
-- contagem por status HTTP
+- total de execuções, sucessos, falhas, taxa, duração média
+- `byTest` — array agrupado por teste (profileId → nome)
+- `byStatus` — contagem por status HTTP
 
 ### 2. Exportação para Excel
 
-`ReportsManager.exportExcel()` gera um workbook com:
-- coluna Seq
-- Endpoint
-- Status
-- StatusCode
-- DuracaoMs
-- NumAtendimentoDB
-- Origem
-- ScheduleId
-- CenarioId
-- ExecutadoPor
-- ExecutadoEm
+`ReportsManager.exportExcel()` gera workbook com colunas:
+`Seq`, `Teste`, `Endpoint`, `Status`, `StatusCode`, `DuracaoMs`, `NumAtendimentoDB`, `UsuarioNome`, `TipoLabel`, `Origem`, `ScheduleId`, `ExecutadoPor`, `ExecutadoEm`
 
-### 3. Exportação para PDF
+### 3. Exportação para HTML
 
-`ReportsManager.exportPDF()` gera um PDF simples com:
-- cabeçalho do relatório
-- resumo geral
-- tabela de distribuição por endpoint
+`ReportsManager.exportHTML(options)` gera relatório HTML aberto em nova aba com:
+- **KPIs** — Execuções, Sucesso, Falhas, Duração Média
+- **Gráfico A** — Linha de tempo com data/hora no eixo X (últimas 200 execuções)
+- **Gráfico B** — Histograma de distribuição de tempo de resposta
+- **Gráfico C** — Barras de tempo médio por teste
+- **Gráfico D** — Barras de taxa de sucesso por teste (verde/amarelo/vermelho)
+- **Tabela Por Teste** — agrupada por nome do teste
+- **Resultados Detalhados** — todos os envios com nome do teste e data/hora
+
+Usa Chart.js 4.4.0 via CDN. Botão "Imprimir / Salvar PDF" usa `window.print()`.
+
+`options` aceita: `{ type: 'all'|'profile'|'group', profileId, groupId }`
 
 ### 4. Exportação para CSV
 
@@ -77,18 +72,17 @@ Fase 6 entrega o módulo de relatórios do STP·SOAP v3 com:
 
 ## 🔧 Integração com UI
 
-### Aba de Relatórios
-Nova aba adicionada à sidebar:
-- `Relatórios` — visível para quem tem permissão `export:results`
-
 ### Botões da tela de relatórios
-- `Exportar Excel`
-- `Exportar PDF`
-- `Exportar CSV`
+- `Exportar Excel` (ID: `btn-export-excel`)
+- `Exportar HTML` (ID: `btn-export-html`)
+- `Exportar CSV` (ID: `btn-export-csv`)
+
+### Filtro HTML
+- Radio `name="html-filter"`: `all`, `profile`, `group`
+- Selects: `html-filter-profile-select`, `html-filter-group-select`
 
 ### Permissões
 - Apenas `admin` e `operador` podem acessar a aba de relatórios
-- Visualizadores não veem a aba por design
 
 ---
 
@@ -96,30 +90,20 @@ Nova aba adicionada à sidebar:
 
 ```javascript
 const fileName = ReportsManager.exportExcel();
-console.log(`Relatório gerado em ${fileName}`);
 
-const pdfFile = ReportsManager.exportPDF();
-console.log(`PDF gerado em ${pdfFile}`);
+ReportsManager.exportHTML({ type: 'group', groupId: 'uuid-do-grupo' });
 
 const csvFile = ReportsManager.exportCSV();
-console.log(`CSV gerado em ${csvFile}`);
 ```
-
----
-
-## 📌 Observações
-
-- O PDF usa `jsPDF` diretamente no navegador.
-- O Excel usa `XLSX` já carregado na aplicação.
-- A exportação CSV é uma alternativa leve quando o Excel não é necessário.
 
 ---
 
 ## ✅ Checklist de Validação Fase 6
 
 - ✅ `ReportsManager.exportExcel()` funciona
-- ✅ `ReportsManager.exportPDF()` funciona
+- ✅ `ReportsManager.exportHTML()` funciona (abre em nova aba)
 - ✅ `ReportsManager.exportCSV()` funciona
-- ✅ Nova aba `Relatórios` adicionada
-- ✅ Integração com `ResultsManager`
-- ✅ Continuidade com o fluxo de relatórios planejado
+- ✅ Gráfico A com data/hora no eixo X
+- ✅ Gráfico D em barras (taxa de sucesso por teste)
+- ✅ Tabela "Por Teste" agrupada por profileId
+- ✅ Nova aba `Relatórios` integrada

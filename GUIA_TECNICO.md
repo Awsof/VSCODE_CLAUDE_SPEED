@@ -36,7 +36,7 @@ O **Speed Teste DBSync v3** é uma SPA (Single Page Application) para monitorame
 - Executar testes de carga com controle de concorrência (1–20 requisições simultâneas)
 - Agendar execuções automáticas com regras de data/hora/frequência
 - Visualizar resultados em gráficos Chart.js com histórico persistido
-- Exportar relatórios em Excel, CSV e PDF
+- Exportar relatórios em Excel, CSV e HTML (com gráficos interativos, otimizado para impressão via browser)
 - Controle de acesso granular por papel (admin / operador / visualizador)
 
 **O sistema é 100% client-side.** Não existe banco de dados — toda a persistência é feita via `localStorage`. O único componente server-side é a função serverless `/api/proxy.js` (Vercel), que serve exclusivamente como proxy CORS para as chamadas SOAP.
@@ -51,7 +51,7 @@ O **Speed Teste DBSync v3** é uma SPA (Single Page Application) para monitorame
 | Persistência | `localStorage` (browser) | — |
 | Charts | Chart.js (CDN) | 4.4.0 |
 | Export Excel | SheetJS/XLSX (CDN) | 0.18.5 |
-| Export PDF | jsPDF (CDN) | 2.5.1 |
+| Export HTML/PDF | Geração nativa via Blob + `window.print()` | — |
 | Hosting | Vercel (static + serverless) | — |
 | Proxy | Vercel Serverless Function (Node.js) | — |
 | Fontes | Google Fonts (Inter + JetBrains Mono) | — |
@@ -152,7 +152,7 @@ Speed_TESTE_NEW/
 A ordem dos `<script>` tags é **crítica** — cada módulo depende dos anteriores já estarem em `window.*`:
 
 ```
-Chart.js, XLSX, jsPDF (CDN)
+Chart.js, XLSX (CDN)
   ↓
 storage/engine.js
   ↓
@@ -256,7 +256,7 @@ window.MeuModulo = MeuModulo;
 | `RunnerEngine` | `engine/runner.js` | Executor SOAP concorrente com AbortController | `run(profile, config)`, `executeBatch(profiles, config)`, `on(eventType, cb)` |
 | `ScenarioExecutor` | `features/executor.js` | Execução sequencial de cenários | `execute(scenario)`, `cancel()`, `on(eventType, cb)` |
 | `ScheduleRunner` | `features/scheduler.js` | Monitor CRON em background (60s interval) | `start()`, `stop()`, `on(eventType, cb)` |
-| `ReportsManager` | `reports/reports.js` | Exportação de dados | `exportXLSX(results)`, `exportCSV(results)`, `exportPDF(results)` |
+| `ReportsManager` | `reports/reports.js` | Exportação de dados | `exportExcel()`, `exportCSV()`, `exportHTML(options)`, `getSummary()`, `getRows()` |
 
 ---
 

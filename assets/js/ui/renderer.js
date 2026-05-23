@@ -535,32 +535,32 @@ const Renderer = (() => {
         <div class="section-header">
           <div>
             <h2 class="section-title">Relatórios</h2>
-            <p class="section-subtitle">Exporte dados de resultado em PDF, Excel ou CSV.</p>
+            <p class="section-subtitle">Exporte dados de resultado em HTML, Excel ou CSV.</p>
           </div>
           <div class="button-bar">
             <button class="button secondary" type="button" id="btn-export-excel">Exportar Excel</button>
-            <button class="button primary" type="button" id="btn-export-pdf">Exportar PDF</button>
+            <button class="button primary" type="button" id="btn-export-html">Exportar HTML</button>
             <button class="button secondary" type="button" id="btn-export-csv">Exportar CSV</button>
           </div>
         </div>
 
         <div style="padding:14px 0 18px;border-bottom:1px solid var(--border);margin-bottom:18px;">
-          <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Filtro do Relatório PDF</div>
+          <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Filtro do Relatório HTML</div>
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
             <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
-              <input type="radio" name="pdf-filter" value="all" checked> Todos os resultados
+              <input type="radio" name="html-filter" value="all" checked> Todos os resultados
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
-              <input type="radio" name="pdf-filter" value="profile"> Por Teste
+              <input type="radio" name="html-filter" value="profile"> Por Teste
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
-              <input type="radio" name="pdf-filter" value="group"> Por Grupo
+              <input type="radio" name="html-filter" value="group"> Por Grupo
             </label>
-            <select id="pdf-filter-profile-select" style="display:none;">
+            <select id="html-filter-profile-select" style="display:none;">
               <option value="">Selecione um teste...</option>
               ${profiles.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
             </select>
-            <select id="pdf-filter-group-select" style="display:none;">
+            <select id="html-filter-group-select" style="display:none;">
               <option value="">Selecione um grupo...</option>
               ${groups.map(g => `<option value="${g.id}">${g.nome}</option>`).join('')}
             </select>
@@ -580,12 +580,12 @@ const Renderer = (() => {
             <div class="stat-card"><div class="stat-label">Taxa</div><div class="stat-value">${summary.successRate}</div></div>
           </div>
           <section class="section-card" style="margin-top:16px;">
-            <div class="section-header"><div><h3 class="section-title">Por Endpoint</h3></div></div>
+            <div class="section-header"><div><h3 class="section-title">Por Teste</h3></div></div>
             <div class="table-wrapper">
               <table class="table">
                 <thead>
                   <tr>
-                    <th>Endpoint</th>
+                    <th>Teste</th>
                     <th>Total</th>
                     <th>Sucesso</th>
                     <th>Falhas</th>
@@ -594,9 +594,9 @@ const Renderer = (() => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${summary.byEndpoint.length ? summary.byEndpoint.map(item => `
+                  ${summary.byTest.length ? summary.byTest.map(item => `
                     <tr>
-                      <td>${item.endpoint}</td>
+                      <td>${item.name}</td>
                       <td>${item.total}</td>
                       <td>${item.success}</td>
                       <td>${item.failed}</td>
@@ -616,7 +616,7 @@ const Renderer = (() => {
               <thead>
                 <tr>
                   <th>Seq</th>
-                  <th>Endpoint</th>
+                  <th>Teste</th>
                   <th>Status</th>
                   <th>TAG</th>
                   <th>Duração</th>
@@ -629,7 +629,7 @@ const Renderer = (() => {
                 ${rows.length ? rows.map(r => `
                   <tr>
                     <td>${r.Seq}</td>
-                    <td>${r.Endpoint}</td>
+                    <td>${r.Teste}</td>
                     <td>${r.Status === 'OK' ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
                     <td style="font-size:0.82em;color:var(--text-muted);">${r.NumAtendimentoDB || '—'}</td>
                     <td>${r.DuracaoMs} ms</td>
@@ -2446,30 +2446,30 @@ const Renderer = (() => {
       });
     }
 
-    const exportPDFButton = document.getElementById('btn-export-pdf');
-    if (exportPDFButton) {
-      exportPDFButton.addEventListener('click', () => {
-        const filterType = document.querySelector('input[name="pdf-filter"]:checked')?.value || 'all';
-        const profileId  = document.getElementById('pdf-filter-profile-select')?.value || null;
-        const groupId    = document.getElementById('pdf-filter-group-select')?.value || null;
+    const exportHTMLButton = document.getElementById('btn-export-html');
+    if (exportHTMLButton) {
+      exportHTMLButton.addEventListener('click', () => {
+        const filterType = document.querySelector('input[name="html-filter"]:checked')?.value || 'all';
+        const profileId  = document.getElementById('html-filter-profile-select')?.value || null;
+        const groupId    = document.getElementById('html-filter-group-select')?.value || null;
         if (filterType === 'profile' && !profileId)
-          return NotificationsManager.warning('Selecione um teste para o relatório PDF.');
+          return NotificationsManager.warning('Selecione um teste para o relatório HTML.');
         if (filterType === 'group' && !groupId)
-          return NotificationsManager.warning('Selecione um grupo para o relatório PDF.');
+          return NotificationsManager.warning('Selecione um grupo para o relatório HTML.');
         try {
-          ReportsManager.exportPDF({ type: filterType, profileId, groupId });
-          NotificationsManager.success('Exportação PDF iniciada');
+          ReportsManager.exportHTML({ type: filterType, profileId, groupId });
+          NotificationsManager.success('Relatório HTML aberto em nova aba');
         } catch (error) {
-          NotificationsManager.danger('Falha ao exportar PDF: ' + error.message);
+          NotificationsManager.danger('Falha ao gerar relatório HTML: ' + error.message);
         }
       });
     }
 
-    document.querySelectorAll('input[name="pdf-filter"]').forEach(radio => {
+    document.querySelectorAll('input[name="html-filter"]').forEach(radio => {
       radio.addEventListener('change', () => {
-        const currentVal = document.querySelector('input[name="pdf-filter"]:checked')?.value;
-        const profileSel = document.getElementById('pdf-filter-profile-select');
-        const groupSel   = document.getElementById('pdf-filter-group-select');
+        const currentVal = document.querySelector('input[name="html-filter"]:checked')?.value;
+        const profileSel = document.getElementById('html-filter-profile-select');
+        const groupSel   = document.getElementById('html-filter-group-select');
         if (profileSel) profileSel.style.display = currentVal === 'profile' ? 'inline-block' : 'none';
         if (groupSel)   groupSel.style.display   = currentVal === 'group'   ? 'inline-block' : 'none';
       });

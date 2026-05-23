@@ -389,7 +389,7 @@
         </div>
         <div class="step">
           <div class="step-num"></div>
-          <div class="step-body"><strong>Exportar relatórios</strong> — baixar os resultados em Excel, PDF ou CSV para análises ou reuniões.</div>
+          <div class="step-body"><strong>Exportar relatórios</strong> — abrir o relatório HTML com gráficos interativos ou baixar em Excel / CSV para análises ou reuniões.</div>
         </div>
       </div>
     </div>
@@ -869,8 +869,8 @@
             <td>Análises detalhadas, filtros e gráficos no Microsoft Excel.</td>
           </tr>
           <tr>
-            <td><strong>PDF</strong></td>
-            <td>Relatório resumido para apresentações ou arquivamento.</td>
+            <td><strong>HTML</strong></td>
+            <td>Relatório visual completo com 4 gráficos interativos, tabela por teste e resultados detalhados. Abre em nova aba — use o botão <strong>Imprimir / Salvar PDF</strong> para gerar PDF via navegador.</td>
           </tr>
           <tr>
             <td><strong>CSV</strong></td>
@@ -879,6 +879,16 @@
         </tbody>
       </table>
       <br>
+      <p><strong>O relatório HTML inclui:</strong></p>
+      <ul style="margin:10px 0 0 20px;line-height:1.9">
+        <li><strong>Gráfico A</strong> — Linha de tempo de resposta por requisição com data e hora exata em cada ponto</li>
+        <li><strong>Gráfico B</strong> — Histograma de distribuição de tempo de resposta</li>
+        <li><strong>Gráfico C</strong> — Tempo médio por teste (barras)</li>
+        <li><strong>Gráfico D</strong> — Taxa de sucesso por teste em barras (verde ≥99%, amarelo ≥80%, vermelho &lt;80%)</li>
+        <li><strong>Tabela Por Teste</strong> — resumo agrupado pelo nome do teste</li>
+        <li><strong>Resultados Detalhados</strong> — todos os envios com nome do teste, status e data/hora</li>
+      </ul>
+      <br>
       <div class="steps">
         <div class="step">
           <div class="step-num"></div>
@@ -886,11 +896,15 @@
         </div>
         <div class="step">
           <div class="step-num"></div>
-          <div class="step-body">Escolha o formato desejado clicando no botão correspondente (<strong>Exportar Excel</strong>, <strong>Exportar PDF</strong> ou <strong>Exportar CSV</strong>).</div>
+          <div class="step-body">Selecione o filtro desejado: <em>Todos os resultados</em>, <em>Por Teste</em> ou <em>Por Grupo</em>.</div>
         </div>
         <div class="step">
           <div class="step-num"></div>
-          <div class="step-body">O arquivo será baixado automaticamente para sua pasta de downloads.</div>
+          <div class="step-body">Clique em <strong>Exportar HTML</strong> — o relatório abrirá em uma nova aba com os gráficos renderizados.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Para salvar como PDF, clique no botão <strong>Imprimir / Salvar PDF</strong> no canto superior direito do relatório e escolha "Salvar como PDF" na caixa de impressão do navegador.</div>
         </div>
       </div>
     </div>

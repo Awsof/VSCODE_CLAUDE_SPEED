@@ -73,7 +73,7 @@ Each module registers itself on `window`. These are the actual global names:
 | `RunnerEngine` | `engine/runner.js` | `run, executeRequest, on` |
 | `ScenarioExecutor` | `features/executor.js` | `execute, cancel, on` |
 | `ScheduleRunner` | `features/scheduler.js` | `start, stop, on` |
-| `ReportsManager` | `reports/reports.js` | `exportXLSX, exportCSV, exportPDF` |
+| `ReportsManager` | `reports/reports.js` | `exportExcel, exportCSV, exportHTML, getSummary, getRows` |
 
 ### Storage Layer
 
@@ -98,6 +98,27 @@ First-access bootstrap: if no users exist, a first-admin creation screen appears
 ### CRON Scheduler
 
 `features/scheduler.js` checks every 60 seconds while the browser tab is open. A schedule fires when: current date is in `[dataInicio, dataFim]`, current day is in `diasSemana`, current time is in `[horaInicio, horaFim]`, and elapsed time since `ultimaExecucao` ≥ `frequenciaMinutos`. On tab reopen, missed executions within the current time window are caught up immediately.
+
+**Session keep-alive:** On each 60s tick, if any schedule has `ativo === true`, `_checkAndExecuteDue()` calls `SessionManager.updateActivity()` to prevent the 30-minute inactivity timeout from firing while scheduled tasks are pending.
+
+### Dashboard Charts
+
+The manual charts section (tab "Manuais") has four filter buttons that control both Chart A and Chart B simultaneously:
+
+| Button ID | Filter | Data returned |
+|-----------|--------|---------------|
+| `dash-manual-filter-last` | `'last'` | All results from the last execution batch (within a 5-minute window) |
+| `dash-manual-filter-10` | `'10'` | Last 10 manual results sorted by time |
+| `dash-manual-filter-50` | `'50'` | Last 50 manual results |
+| `dash-manual-filter-100` | `'100'` | Last 100 manual results |
+
+`_getManualResultsByFilter(filter)` is the data-source function. `_initializeDashboardManualCharts(filter = 'last')` renders both charts and updates button styles. Adding a new filter requires: a new button in `_renderDashboard()`, a listener in `_attachEventListeners()`, and a `slice(-N)` case in `_getManualResultsByFilter`.
+
+**Chart B (histogram)** renders one bar-dataset per profile using `_daProfileColors`, so profiles with different response-time distributions are visually distinct. The x-axis bucket bounds are shared across all profiles and scaled to the global `maxDur`.
+
+### CSS Responsiveness
+
+`.app-workspace` has `min-width: 0; overflow-x: hidden;` to prevent the `1fr` grid column from overflowing at any browser zoom level. `.wide-panel > *` has `min-width: 0` for the same reason inside the chart grid.
 
 ## Design System
 
@@ -134,10 +155,25 @@ STP_DEBUG.storage()    // Count of all stored entities
 STP_DEBUG.logout()     // Force logout
 ```
 
+## Cache-Bust Versions (current)
+
+After editing any JS or CSS file, increment its `?v=N` in `index.html` and redeploy.
+
+| File | Version |
+|------|---------|
+| `assets/css/layout.css` | v=10 |
+| `assets/css/charts.css` | v=10 |
+| `assets/js/ui/renderer.js` | v=13 |
+| `assets/js/features/scheduler.js` | v=10 |
+| `assets/js/storage/schedules.js` | v=10 |
+| `assets/js/reports/reports.js` | v=11 |
+| All other JS/CSS | v=9 |
+
 ## Documentation
 
 Detailed specs and scope are in the root-level `.md` files:
-- `STP_SOAP_v3_Especificacao_Tecnica.md` — full technical specification
+- `GUIA_TECNICO.md` — comprehensive technical reference for developers (schemas, pipelines, maintenance tasks)
+- `STP_SOAP_v3_Especificacao_Tecnica.md` — original full technical specification
 - `STP_SOAP_v3_Escopo_Evolucao.md` — phase-by-phase scope
 - `ROADMAP.md` — current completion status
 - Each `assets/js/<module>/` folder contains a phase-specific README
