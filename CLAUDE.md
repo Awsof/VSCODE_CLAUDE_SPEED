@@ -166,7 +166,7 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 | `assets/js/ui/renderer.js` | v=13 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=10 |
-| `assets/js/reports/reports.js` | v=11 |
+| `assets/js/reports/reports.js` | v=12 |
 | All other JS/CSS | v=9 |
 
 ## Documentation

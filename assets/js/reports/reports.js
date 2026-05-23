@@ -108,6 +108,8 @@ const ReportsManager = (() => {
   };
 
   const exportHTML = (options = {}) => {
+    const COLORS = ['#0f9b94','#7c3aed','#f59e0b','#3b82f6','#10b981','#ef4444','#f97316','#8b5cf6'];
+
     // --- Filtrar resultados ---
     let results = _getResults();
     let filterLabel = 'Todos os resultados';
@@ -128,6 +130,13 @@ const ReportsManager = (() => {
     const profiles = ProfilesManager.list();
     const getUser = id => users.find(u => u.id === id);
 
+    const fmtPeriod = (ms) => {
+      if (!ms || !isFinite(ms)) return '—';
+      const d = new Date(ms);
+      return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} `
+        + `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    };
+
     // --- Stats globais ---
     const total = results.length;
     const successful = results.filter(r => r.success).length;
@@ -136,22 +145,34 @@ const ReportsManager = (() => {
       ? Math.round(results.reduce((s, r) => s + (r.duration || 0), 0) / total)
       : 0;
 
-    // --- Por Teste ---
+    // --- Por Teste (com período e min/max duração) ---
     const byTestMap = {};
     results.forEach(r => {
       const key = r.profileId || '__unknown__';
+      const ts = new Date(r.executadoEm).getTime();
+      const dur = r.duration || 0;
       if (!byTestMap[key]) {
         byTestMap[key] = {
+          profileId: key,
           name: _getProfileName(key, profiles),
-          total: 0, success: 0, failed: 0, durations: []
+          total: 0, success: 0, failed: 0, durations: [],
+          minTime: ts, maxTime: ts,
+          minDuration: dur, maxDuration: dur
         };
       }
-      byTestMap[key].total++;
-      byTestMap[key].success += r.success ? 1 : 0;
-      byTestMap[key].failed += r.success ? 0 : 1;
-      byTestMap[key].durations.push(r.duration || 0);
+      const b = byTestMap[key];
+      b.total++;
+      b.success += r.success ? 1 : 0;
+      b.failed += r.success ? 0 : 1;
+      b.durations.push(dur);
+      if (ts < b.minTime) b.minTime = ts;
+      if (ts > b.maxTime) b.maxTime = ts;
+      if (dur < b.minDuration) b.minDuration = dur;
+      if (dur > b.maxDuration) b.maxDuration = dur;
     });
+
     const testStats = Object.values(byTestMap).map(t => ({
+      profileId: t.profileId,
       name: t.name,
       total: t.total,
       success: t.success,
@@ -159,21 +180,37 @@ const ReportsManager = (() => {
       successRate: t.total > 0 ? Math.round((t.success / t.total) * 100) : 0,
       avgDuration: t.durations.length > 0
         ? Math.round(t.durations.reduce((s, v) => s + v, 0) / t.durations.length)
-        : 0
+        : 0,
+      minDuration: isFinite(t.minDuration) ? t.minDuration : 0,
+      maxDuration: isFinite(t.maxDuration) ? t.maxDuration : 0,
+      inicio: fmtPeriod(t.minTime),
+      fim: fmtPeriod(t.maxTime)
     }));
 
-    // --- Dados Chart A (linha, até 200, ordenados por tempo) ---
-    const chartAData = [...results]
-      .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm))
-      .slice(-200)
-      .map(r => {
-        const d = new Date(r.executadoEm);
-        const label = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} `
-          + `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
-        return { d: r.duration || 0, t: label, full: new Date(r.executadoEm).toLocaleString('pt-BR'), ok: r.success };
-      });
+    // Período global do grupo
+    const allMinTimes = Object.values(byTestMap).map(t => t.minTime).filter(v => isFinite(v));
+    const allMaxTimes = Object.values(byTestMap).map(t => t.maxTime).filter(v => isFinite(v));
+    const groupStart = allMinTimes.length > 0 ? fmtPeriod(Math.min.apply(null, allMinTimes)) : '—';
+    const groupEnd   = allMaxTimes.length > 0 ? fmtPeriod(Math.max.apply(null, allMaxTimes)) : '—';
 
-    // --- Dados Chart B (histograma) ---
+    // --- Chart A: uma linha por teste, ordenada por tempo ---
+    const chartAPerTest = testStats.map((t, i) => {
+      const testResults = results
+        .filter(r => r.profileId === t.profileId)
+        .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+      return {
+        name: t.name,
+        color: COLORS[i % COLORS.length],
+        data: testResults.map(r => {
+          const d = new Date(r.executadoEm);
+          const lbl = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} `
+            + `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+          return { d: r.duration || 0, t: lbl, full: new Date(r.executadoEm).toLocaleString('pt-BR') };
+        })
+      };
+    });
+
+    // --- Chart B: histograma agrupado por teste ---
     const buckets = [
       { label: '0–500ms', min: 0,    max: 500 },
       { label: '500–1s',  min: 500,  max: 1000 },
@@ -182,95 +219,128 @@ const ReportsManager = (() => {
       { label: '3–5s',    min: 3000, max: 5000 },
       { label: '>5s',     min: 5000, max: Infinity }
     ];
-    const chartBData = buckets.map(b => ({
-      label: b.label,
-      count: results.filter(r => (r.duration || 0) >= b.min && (r.duration || 0) < b.max).length
-    }));
+    const chartBData = {
+      labels: buckets.map(b => b.label),
+      datasets: testStats.map((t, i) => {
+        const testResults = results.filter(r => r.profileId === t.profileId);
+        return {
+          label: t.name,
+          color: COLORS[i % COLORS.length],
+          counts: buckets.map(b =>
+            testResults.filter(r => (r.duration || 0) >= b.min && (r.duration || 0) < b.max).length
+          )
+        };
+      })
+    };
 
-    // --- Linhas da tabela detalhada ---
-    const sorted = [...results].sort((a, b) => new Date(b.executadoEm) - new Date(a.executadoEm));
-    const detailRowsHtml = sorted.map((r, idx) => {
-      const u = getUser(r.executadoPor);
-      const userName = u ? (u.nome || u.usuario) : '—';
-      const testName = _getProfileName(r.profileId, profiles);
-      const dt = new Date(r.executadoEm).toLocaleString('pt-BR');
-      const statusCell = r.success
-        ? '<span style="color:#0f9b94;font-weight:700">OK</span>'
-        : '<span style="color:#dc2626;font-weight:700">ERRO</span>';
-      const bg = idx % 2 === 0 ? '#f8f9fa' : '#ffffff';
-      return `<tr style="background:${bg}">
-        <td>${r.seq || idx + 1}</td>
-        <td>${_esc(testName)}</td>
-        <td>${statusCell}</td>
-        <td>${r.statusCode || 'N/A'}</td>
-        <td>${r.duration || 0} ms</td>
-        <td style="font-size:11px;color:#475569">${_esc(r.numAtendimentoDB || '—')}</td>
-        <td style="font-size:11px">${_esc(userName)}</td>
-        <td style="font-size:11px;white-space:nowrap">${dt}</td>
-      </tr>`;
-    }).join('');
+    // --- Chart D: Mín / Méd / Máx por teste ---
+    const chartDData = {
+      labels: testStats.map(t => t.name),
+      datasets: [
+        { label: 'Mín', data: testStats.map(t => t.minDuration), color: '#93c5fd' },
+        { label: 'Méd', data: testStats.map(t => t.avgDuration), color: '#0f9b94' },
+        { label: 'Máx', data: testStats.map(t => t.maxDuration), color: '#fca5a5' }
+      ]
+    };
 
-    // --- Linhas da tabela Por Teste ---
-    const testTableRowsHtml = testStats.map((t, idx) => {
+    // --- HTML: seção "Por Teste" colapsável ---
+    const porTesteRows = testStats.map((t, idx) => {
       const bg = idx % 2 === 0 ? '#f8f9fa' : '#ffffff';
       const rateColor = t.successRate >= 99 ? '#0f9b94' : t.successRate >= 80 ? '#f59e0b' : '#dc2626';
       return `<tr style="background:${bg}">
         <td>${_esc(t.name)}</td>
         <td>${t.total}</td>
         <td style="color:#0f9b94;font-weight:600">${t.success}</td>
-        <td style="color:${t.failed > 0 ? '#dc2626' : 'inherit'};font-weight:${t.failed > 0 ? 600 : 400}">${t.failed}</td>
+        <td style="color:${t.failed > 0 ? '#dc2626' : 'inherit'}">${t.failed}</td>
         <td style="color:${rateColor};font-weight:700">${t.successRate}%</td>
         <td>${t.avgDuration} ms</td>
+        <td style="font-size:11px;color:#475569;white-space:nowrap">${t.inicio}</td>
+        <td style="font-size:11px;color:#475569;white-space:nowrap">${t.fim}</td>
       </tr>`;
     }).join('');
 
-    const noDataMsg = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px">Nenhum resultado encontrado para o filtro selecionado.</div>';
+    const porTesteSection = `
+    <details class="por-teste-box" open>
+      <summary class="por-teste-summary">Por Teste &nbsp;&middot;&nbsp; ${testStats.length} teste${testStats.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; Per&iacute;odo: ${groupStart} &ndash; ${groupEnd}</summary>
+      <div>
+        <table>
+          <thead><tr>
+            <th>Teste</th><th>Total</th><th>Sucesso</th><th>Falhas</th><th>Taxa</th><th>Avg ms</th><th>In&iacute;cio</th><th>Fim</th>
+          </tr></thead>
+          <tbody>${porTesteRows || '<tr><td colspan="8" style="text-align:center;padding:16px;color:#94a3b8">Nenhum resultado</td></tr>'}</tbody>
+        </table>
+      </div>
+    </details>`;
+
+    // --- HTML: Resultados Detalhados colapsáveis por teste ---
+    const detailSections = testStats.map((t, idx) => {
+      const testResults = results
+        .filter(r => r.profileId === t.profileId)
+        .sort((a, b) => new Date(b.executadoEm) - new Date(a.executadoEm));
+
+      const rows = testResults.map((r, ri) => {
+        const u = getUser(r.executadoPor);
+        const userName = u ? (u.nome || u.usuario) : '—';
+        const dt = new Date(r.executadoEm).toLocaleString('pt-BR');
+        const statusCell = r.success
+          ? '<span style="color:#0f9b94;font-weight:700">OK</span>'
+          : '<span style="color:#dc2626;font-weight:700">ERRO</span>';
+        const bg = ri % 2 === 0 ? '#f8f9fa' : '#ffffff';
+        return `<tr style="background:${bg}">
+          <td>${r.seq || ri + 1}</td>
+          <td>${statusCell}</td>
+          <td>${r.statusCode || 'N/A'}</td>
+          <td>${r.duration || 0} ms</td>
+          <td style="font-size:11px;color:#475569">${_esc(r.numAtendimentoDB || '—')}</td>
+          <td style="font-size:11px">${_esc(userName)}</td>
+          <td style="font-size:11px;white-space:nowrap">${dt}</td>
+        </tr>`;
+      }).join('');
+
+      const periodStr = t.inicio !== '—' ? ` &middot; ${t.inicio} &ndash; ${t.fim}` : '';
+      const isOpen = idx === 0 ? ' open' : '';
+      return `<details class="test-detail-group"${isOpen}>
+        <summary>${_esc(t.name)} &mdash; ${t.total} resultado${t.total !== 1 ? 's' : ''}${periodStr}</summary>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Status</th><th>C&oacute;d.</th><th>Dura&ccedil;&atilde;o</th>
+            <th>Num. Atend.</th><th>Usu&aacute;rio</th><th>Data/Hora</th>
+          </tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">Nenhum resultado</td></tr>'}</tbody>
+        </table>
+      </details>`;
+    }).join('');
 
     const chartsSection = total > 0 ? `
     <div class="charts-grid">
       <div class="chart-box">
-        <div class="chart-title">A &mdash; Tempo de resposta por requisição (ms)</div>
+        <div class="chart-title">A &mdash; Tempo de resposta por requisi&ccedil;&atilde;o (ms)</div>
         <canvas id="chartA" height="180"></canvas>
       </div>
       <div class="chart-box">
-        <div class="chart-title">B &mdash; Distribuição de tempo de resposta</div>
+        <div class="chart-title">B &mdash; Distribui&ccedil;&atilde;o de tempo de resposta</div>
         <canvas id="chartB" height="180"></canvas>
       </div>
     </div>
     <div class="charts-grid">
       <div class="chart-box">
-        <div class="chart-title">C &mdash; Tempo médio por teste (ms)</div>
+        <div class="chart-title">C &mdash; Tempo m&eacute;dio por teste (ms)</div>
         <canvas id="chartC" height="180"></canvas>
       </div>
       <div class="chart-box">
-        <div class="chart-title">D &mdash; Taxa de sucesso por teste (%)</div>
+        <div class="chart-title">D &mdash; M&iacute;n / M&eacute;d / M&aacute;x por teste (ms)</div>
         <canvas id="chartD" height="180"></canvas>
       </div>
     </div>` : '';
 
-    const testTableSection = total > 0 ? `
-    <table>
-      <thead><tr>
-        <th>Teste</th><th>Total</th><th>Sucesso</th><th>Falhas</th><th>Taxa</th><th>Avg ms</th>
-      </tr></thead>
-      <tbody>${testTableRowsHtml}</tbody>
-    </table>` : noDataMsg;
-
-    const detailSection = total > 0 ? `
-    <table>
-      <thead><tr>
-        <th>#</th><th>Teste</th><th>Status</th><th>Cód.</th>
-        <th>Duração</th><th>Num. Atend.</th><th>Usuário</th><th>Data/Hora</th>
-      </tr></thead>
-      <tbody>${detailRowsHtml}</tbody>
-    </table>` : noDataMsg;
+    const noDataMsg = '<div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px">Nenhum resultado encontrado para o filtro selecionado.</div>';
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Relatório Speed Teste DBSync</title>
+<title>Relat&oacute;rio Speed Teste DBSync</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"><\/script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -279,19 +349,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f8f9fa;color:#0f172a;fo
 .header h1{font-size:20px;font-weight:800;margin-bottom:4px}
 .header .meta{font-size:11px;opacity:.75;margin-top:4px}
 .content{padding:24px 32px;max-width:1200px;margin:0 auto}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
 .kpi{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px}
 .kpi-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .kpi-value{font-size:24px;font-weight:800;color:#003761;margin-top:2px}
 .kpi-value.ok{color:#0f9b94}.kpi-value.err{color:#dc2626}
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+details.por-teste-box{background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px;overflow:hidden}
+details.por-teste-box>summary{padding:11px 16px;cursor:pointer;font-size:13px;font-weight:700;color:#003761;background:#f8f9fa;border-bottom:1px solid #e2e8f0;list-style:none;user-select:none}
+details.por-teste-box>summary::marker,details.por-teste-box>summary::-webkit-details-marker{display:none}
+details.por-teste-box>summary::before{content:'\25B6';font-size:9px;margin-right:8px;display:inline-block;transition:transform .18s}
+details.por-teste-box[open]>summary::before{transform:rotate(90deg)}
+details.por-teste-box>div>table{border-radius:0;border:none;border-top:1px solid #f1f5f9;margin-bottom:0}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 .chart-box{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px}
 .chart-title{font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.section-title{font-size:14px;font-weight:700;color:#003761;margin:24px 0 10px;border-left:3px solid #0f9b94;padding-left:10px}
-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;font-size:12px;margin-bottom:24px}
+.section-title{font-size:14px;font-weight:700;color:#003761;margin:20px 0 10px;border-left:3px solid #0f9b94;padding-left:10px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;font-size:12px;margin-bottom:0}
 thead tr{background:#003761;color:#fff}
 th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
 td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+details.test-detail-group{margin-bottom:10px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+details.test-detail-group>summary{padding:10px 14px;cursor:pointer;font-size:12px;font-weight:700;color:#003761;background:#f8f9fa;list-style:none;user-select:none}
+details.test-detail-group>summary::marker,details.test-detail-group>summary::-webkit-details-marker{display:none}
+details.test-detail-group>summary::before{content:'\25B6';font-size:9px;margin-right:8px;display:inline-block;transition:transform .18s}
+details.test-detail-group[open]>summary::before{transform:rotate(90deg)}
+details.test-detail-group[open]>summary{border-bottom:1px solid #e2e8f0}
+details.test-detail-group table{border-radius:0;border:none}
 .print-btn{position:fixed;top:16px;right:16px;background:#0f9b94;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:100}
 .print-btn:hover{background:#0d8880}
 @media print{
@@ -303,63 +386,83 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
   .page-break{break-before:page}
   table{font-size:10px}
   th,td{padding:5px 8px}
+  details{display:block!important}
+  details>summary{display:none!important}
+  details.test-detail-group{margin-bottom:16px}
 }
 </style>
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
 <div class="header">
-  <h1>Relatório Speed Teste DBSync</h1>
+  <h1>Relat&oacute;rio Speed Teste DBSync</h1>
   <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')}&nbsp;&nbsp;|&nbsp;&nbsp;Filtro: ${filterLabel}</div>
 </div>
 <div class="content">
   <div class="kpi-row">
-    <div class="kpi"><div class="kpi-label">Execuções</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi"><div class="kpi-label">Execu&ccedil;&otilde;es</div><div class="kpi-value">${total}</div></div>
     <div class="kpi"><div class="kpi-label">Sucesso</div><div class="kpi-value ok">${successful}</div></div>
     <div class="kpi"><div class="kpi-label">Falhas</div><div class="kpi-value ${failed > 0 ? 'err' : ''}">${failed}</div></div>
-    <div class="kpi"><div class="kpi-label">Duração Média</div><div class="kpi-value">${avgDuration} ms</div></div>
+    <div class="kpi"><div class="kpi-label">Dura&ccedil;&atilde;o M&eacute;dia</div><div class="kpi-value">${avgDuration} ms</div></div>
   </div>
+  ${total > 0 ? porTesteSection : noDataMsg}
   ${chartsSection}
-  <div class="section-title">Por Teste</div>
-  ${testTableSection}
   <div class="section-title page-break">Resultados Detalhados</div>
-  ${detailSection}
+  ${total > 0 ? detailSections : noDataMsg}
 </div>
 <script>
 (function(){
-  const A=${JSON.stringify(chartAData)};
-  const B=${JSON.stringify(chartBData)};
-  const T=${JSON.stringify(testStats)};
+  var A=${JSON.stringify(chartAPerTest)};
+  var B=${JSON.stringify(chartBData)};
+  var T=${JSON.stringify(testStats)};
+  var D=${JSON.stringify(chartDData)};
 
   function mkChart(id,cfg){var el=document.getElementById(id);if(el)new Chart(el,cfg);}
 
-  // Chart A — linha com data/hora no eixo X
-  mkChart('chartA',{type:'line',data:{
-    labels:A.map(function(r){return r.t;}),
-    datasets:[{data:A.map(function(r){return r.d;}),
-      borderColor:'#0f9b94',backgroundColor:'rgba(15,155,148,0.07)',
-      tension:0.25,pointRadius:A.length<=80?3:0,pointHoverRadius:5,
-      borderWidth:1.5,fill:true}]},
-    options:{responsive:true,plugins:{legend:{display:false},
-      tooltip:{callbacks:{
-        title:function(items){return A[items[0].dataIndex]?A[items[0].dataIndex].full:'';},
-        label:function(item){return item.raw+' ms';}}}},
-      scales:{
-        x:{ticks:{maxTicksLimit:8,maxRotation:35,font:{size:9}},grid:{color:'#f1f5f9'}},
-        y:{ticks:{font:{size:9},callback:function(v){return v+'ms';}},
-           grid:{color:'#f1f5f9'},beginAtZero:true}}}});
+  // Chart A — uma linha por teste
+  (function(){
+    var maxLen=A.reduce(function(m,t){return Math.max(m,t.data.length);},0);
+    if(!maxLen)return;
+    var labels=Array.from({length:maxLen},function(_,i){return String(i+1);});
+    mkChart('chartA',{type:'line',data:{
+      labels:labels,
+      datasets:A.map(function(t){
+        var pts=t.data.map(function(p){return p.d;});
+        while(pts.length<maxLen)pts.push(null);
+        return{label:t.name,data:pts,
+          borderColor:t.color,backgroundColor:t.color+'18',
+          tension:0.25,fill:false,spanGaps:false,
+          pointRadius:t.data.length<=60?2:0,pointHoverRadius:4,borderWidth:1.5};
+      })},
+      options:{responsive:true,
+        plugins:{
+          legend:{display:A.length>1,position:'top',labels:{boxWidth:12,font:{size:10}}},
+          tooltip:{callbacks:{
+            title:function(items){
+              var ds=A[items[0].datasetIndex];
+              if(!ds||!ds.data[items[0].dataIndex])return'';
+              return ds.name+' — '+ds.data[items[0].dataIndex].full;},
+            label:function(item){
+              return item.raw!==null?item.raw+' ms':'—';}}}},
+        scales:{
+          x:{ticks:{maxTicksLimit:10,font:{size:9}},grid:{color:'#f1f5f9'}},
+          y:{ticks:{font:{size:9},callback:function(v){return v+'ms';}},
+             grid:{color:'#f1f5f9'},beginAtZero:true}}}});
+  })();
 
-  // Chart B — histograma de distribuição
+  // Chart B — histograma agrupado por teste
   mkChart('chartB',{type:'bar',data:{
-    labels:B.map(function(b){return b.label;}),
-    datasets:[{data:B.map(function(b){return b.count;}),
-      backgroundColor:'#c49b3c',borderRadius:4}]},
-    options:{responsive:true,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:function(i){return i.raw+' execuções';}}}},
+    labels:B.labels,
+    datasets:B.datasets.map(function(d){
+      return{label:d.label,data:d.counts,backgroundColor:d.color,borderRadius:3};})},
+    options:{responsive:true,
+      plugins:{
+        legend:{display:B.datasets.length>1,position:'top',labels:{boxWidth:12,font:{size:10}}},
+        tooltip:{callbacks:{label:function(i){return i.dataset.label+': '+i.raw+' execuções';}}}},
       scales:{x:{ticks:{font:{size:9}},grid:{display:false}},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true}}}});
 
-  // Chart C — tempo médio por teste (barras horizontais se >4 testes)
+  // Chart C — tempo médio por teste
   var axisC=T.length>4?'y':'x';
   mkChart('chartC',{type:'bar',data:{
     labels:T.map(function(t){return t.name;}),
@@ -371,19 +474,17 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
       scales:{x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'}}}}});
 
-  // Chart D — taxa de sucesso por teste (barras, verde/amarelo/vermelho)
-  var axisD=T.length>4?'y':'x';
+  // Chart D — Mín / Méd / Máx por teste
+  var axisD=D.labels.length>4?'y':'x';
   mkChart('chartD',{type:'bar',data:{
-    labels:T.map(function(t){return t.name;}),
-    datasets:[{data:T.map(function(t){return t.successRate;}),
-      backgroundColor:T.map(function(t){
-        return t.successRate>=99?'#0f9b94':t.successRate>=80?'#f59e0b':'#dc2626';}),
-      borderRadius:4}]},
+    labels:D.labels,
+    datasets:D.datasets.map(function(ds){
+      return{label:ds.label,data:ds.data,backgroundColor:ds.color,borderRadius:3};})},
     options:{responsive:true,indexAxis:axisD,
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:function(i){return i.raw+'%';}}}},
-      scales:{
-        x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true,max:100},
+      plugins:{
+        legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:10}}},
+        tooltip:{callbacks:{label:function(i){return i.dataset.label+': '+i.raw+' ms';}}}},
+      scales:{x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'}}}}});
 })();
 <\/script>
