@@ -394,7 +394,7 @@ details.test-detail-group table{border-radius:0;border:none}
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
-<button class="print-btn" onclick="downloadReport()">&#128190; Salvar como HTML</button>
+<button class="print-btn" style="top:56px" onclick="downloadReport()">&#128190; Salvar como HTML</button>
 <div class="header">
   <h1>Relat&oacute;rio Speed Teste DBSync</h1>
   <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')}&nbsp;&nbsp;|&nbsp;&nbsp;Filtro: ${filterLabel}</div>
@@ -412,7 +412,7 @@ details.test-detail-group table{border-radius:0;border:none}
   ${total > 0 ? detailSections : noDataMsg}
 </div>
 <script>
-(function(){
+window.addEventListener('load',function(){
   var A=${JSON.stringify(chartAPerTest)};
   var B=${JSON.stringify(chartBData)};
   var T=${JSON.stringify(testStats)};
@@ -487,15 +487,19 @@ details.test-detail-group table{border-radius:0;border:none}
         tooltip:{callbacks:{label:function(i){return i.dataset.label+': '+i.raw+' ms';}}}},
       scales:{x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'}}}}});
-})();
+});
 function downloadReport(){
-  var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-  var b=new Blob([h],{type:'text/html;charset=utf-8'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(b);
-  a.download='relatorio-stp-'+new Date().toISOString().slice(0,10)+'.html';
-  document.body.appendChild(a);a.click();
-  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+  if(window.opener&&window.opener._downloadReportHTML){
+    window.opener._downloadReportHTML();
+  }else{
+    var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+    var b=new Blob([h],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download='relatorio-stp-'+new Date().toISOString().slice(0,10)+'.html';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+  }
 }
 <\/script>
 </body>
@@ -505,6 +509,16 @@ function downloadReport(){
     const url = URL.createObjectURL(blob);
     const win = window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 120000);
+    window._downloadReportHTML = () => {
+      const b2 = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const u2 = URL.createObjectURL(b2);
+      const a2 = document.createElement('a');
+      a2.href = u2;
+      a2.download = `relatorio-stp-${new Date().toISOString().slice(0, 10)}.html`;
+      document.body.appendChild(a2);
+      a2.click();
+      setTimeout(() => { document.body.removeChild(a2); URL.revokeObjectURL(u2); }, 2000);
+    };
     if (!win) {
       NotificationsManager.warning('Pop-up bloqueado. Permita pop-ups para este site e tente novamente.');
     }
