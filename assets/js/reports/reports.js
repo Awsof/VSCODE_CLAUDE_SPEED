@@ -413,12 +413,26 @@ details.test-detail-group table{border-radius:0;border:none}
 </div>
 <script>
 window.addEventListener('load',function(){
+  var ChartLib=window.Chart||(window.opener&&window.opener.Chart)||null;
+  if(!ChartLib){
+    document.querySelectorAll('canvas').forEach(function(c){
+      c.parentElement.style.display='flex';
+      c.parentElement.style.alignItems='center';
+      c.parentElement.style.justifyContent='center';
+      c.style.display='none';
+      var p=document.createElement('p');
+      p.style.cssText='color:#dc2626;font-size:12px;text-align:center';
+      p.textContent='Chart.js indisponível — recarregue a página';
+      c.parentElement.appendChild(p);
+    });
+    return;
+  }
   var A=${JSON.stringify(chartAPerTest)};
   var B=${JSON.stringify(chartBData)};
   var T=${JSON.stringify(testStats)};
   var D=${JSON.stringify(chartDData)};
 
-  function mkChart(id,cfg){var el=document.getElementById(id);if(el)new Chart(el,cfg);}
+  function mkChart(id,cfg){var el=document.getElementById(id);if(el)new ChartLib(el,cfg);}
 
   // Chart A — uma linha por teste
   (function(){
