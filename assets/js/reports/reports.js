@@ -492,7 +492,7 @@ function downloadReport(){
   if(window.opener&&window.opener._downloadReportHTML){
     window.opener._downloadReportHTML();
   }else{
-    var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+    var h='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;
     var b=new Blob([h],{type:'text/html;charset=utf-8'});
     var a=document.createElement('a');
     a.href=URL.createObjectURL(b);
