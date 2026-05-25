@@ -341,7 +341,6 @@ const ReportsManager = (() => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Relat&oacute;rio Speed Teste DBSync</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"><\/script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f8f9fa;color:#0f172a;font-size:13px;line-height:1.5}
@@ -411,28 +410,15 @@ details.test-detail-group table{border-radius:0;border:none}
   <div class="section-title page-break">Resultados Detalhados</div>
   ${total > 0 ? detailSections : noDataMsg}
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"><\/script>
 <script>
-window.addEventListener('load',function(){
-  var ChartLib=window.Chart||(window.opener&&window.opener.Chart)||null;
-  if(!ChartLib){
-    document.querySelectorAll('canvas').forEach(function(c){
-      c.parentElement.style.display='flex';
-      c.parentElement.style.alignItems='center';
-      c.parentElement.style.justifyContent='center';
-      c.style.display='none';
-      var p=document.createElement('p');
-      p.style.cssText='color:#dc2626;font-size:12px;text-align:center';
-      p.textContent='Chart.js indisponível — recarregue a página';
-      c.parentElement.appendChild(p);
-    });
-    return;
-  }
+(function(){
   var A=${JSON.stringify(chartAPerTest)};
   var B=${JSON.stringify(chartBData)};
   var T=${JSON.stringify(testStats)};
   var D=${JSON.stringify(chartDData)};
 
-  function mkChart(id,cfg){var el=document.getElementById(id);if(el)new ChartLib(el,cfg);}
+  function mkChart(id,cfg){var el=document.getElementById(id);if(el&&window.Chart)new Chart(el,cfg);}
 
   // Chart A — uma linha por teste
   (function(){
@@ -501,7 +487,7 @@ window.addEventListener('load',function(){
         tooltip:{callbacks:{label:function(i){return i.dataset.label+': '+i.raw+' ms';}}}},
       scales:{x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'}}}}});
-});
+})();
 function downloadReport(){
   if(window.opener&&window.opener._downloadReportHTML){
     window.opener._downloadReportHTML();
