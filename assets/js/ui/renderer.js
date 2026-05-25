@@ -1912,16 +1912,20 @@ const Renderer = (() => {
           : scheduleName;
         const medianVal = _median(pResults.map(r => r.duration));
 
+        const labelMap = new Map();
+        pResults.forEach(r => labelMap.set(formatLabel(r.executadoEm), r.duration));
         datasets.push({
           label: label,
-          data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+          data: allLabels.map(lbl => labelMap.get(lbl) ?? null),
+          spanGaps: false,
           borderColor: color.line, backgroundColor: color.fill,
           fill: false, tension: 0.3,
           pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
         });
         datasets.push({
           label: `${label} (mediana: ${medianVal}ms)`,
-          data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+          data: allLabels.map(lbl => labelMap.has(lbl) ? medianVal : null),
+          spanGaps: false,
           borderColor: color.line, backgroundColor: 'transparent',
           fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
         });
@@ -1932,9 +1936,8 @@ const Renderer = (() => {
     state.chartRefs['schedule-perf'] = new Chart(
       document.getElementById('chart-schedule-perf').getContext('2d'), {
         type: 'line',
-        data: { datasets },
+        data: { labels: allLabels, datasets },
         options: {
-          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
           plugins: {
             legend: {
               display: scheduleIds.length > 0,
@@ -2156,6 +2159,7 @@ const Renderer = (() => {
 
       const scheduleIds = [...new Set(allResults.map(r => r.scheduleId).filter(Boolean))];
       const schedules = SchedulerManager.list();
+      const allLabels = [...new Set(allResults.map(r => formatLabel(r.executadoEm)))];
       const _dashProfileNames = {};
       ProfilesManager.list().forEach(p => { _dashProfileNames[p.id] = p.nome; });
       const datasets = [];
@@ -2174,15 +2178,19 @@ const Renderer = (() => {
             ? `${scheduleName} — ${profileLabel}`
             : scheduleName;
           const medianVal = _median(pResults.map(r => r.duration));
+          const labelMap = new Map();
+          pResults.forEach(r => labelMap.set(formatLabel(r.executadoEm), r.duration));
           datasets.push({
             label: label,
-            data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: r.duration })),
+            data: allLabels.map(lbl => labelMap.get(lbl) ?? null),
+            spanGaps: false,
             borderColor: color.line, backgroundColor: color.fill, fill: false, tension: 0.3,
             pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
           });
           datasets.push({
             label: `${label} (mediana: ${medianVal}ms)`,
-            data: pResults.map(r => ({ x: formatLabel(r.executadoEm), y: medianVal })),
+            data: allLabels.map(lbl => labelMap.has(lbl) ? medianVal : null),
+            spanGaps: false,
             borderColor: color.line, backgroundColor: 'transparent', fill: false, tension: 0,
             pointRadius: 0, borderWidth: 1.5, borderDash: [6, 4]
           });
@@ -2192,9 +2200,8 @@ const Renderer = (() => {
       _resetChart('dash-sa');
       state.chartRefs['dash-sa'] = new Chart(canvasSA.getContext('2d'), {
         type: 'line',
-        data: { datasets },
+        data: { labels: allLabels, datasets },
         options: {
-          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
           plugins: {
             legend: {
               display: scheduleIds.length > 0,
