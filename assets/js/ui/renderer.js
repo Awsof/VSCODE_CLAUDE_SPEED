@@ -1912,12 +1912,18 @@ const Renderer = (() => {
           : scheduleName;
         const medianVal = _median(pResults.map(r => r.duration));
 
+        const _bSum = new Map(), _bCnt = new Map();
+        pResults.forEach(r => {
+          const lbl = formatLabel(r.executadoEm);
+          _bSum.set(lbl, (_bSum.get(lbl) || 0) + r.duration);
+          _bCnt.set(lbl, (_bCnt.get(lbl) || 0) + 1);
+        });
         const labelMap = new Map();
-        pResults.forEach(r => labelMap.set(formatLabel(r.executadoEm), r.duration));
+        _bSum.forEach((sum, lbl) => labelMap.set(lbl, Math.round(sum / _bCnt.get(lbl))));
         datasets.push({
           label: label,
           data: allLabels.map(lbl => labelMap.get(lbl) ?? null),
-          spanGaps: false,
+          spanGaps: true,
           borderColor: color.line, backgroundColor: color.fill,
           fill: false, tension: 0.3,
           pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
@@ -2178,12 +2184,18 @@ const Renderer = (() => {
             ? `${scheduleName} — ${profileLabel}`
             : scheduleName;
           const medianVal = _median(pResults.map(r => r.duration));
+          const _bSum = new Map(), _bCnt = new Map();
+          pResults.forEach(r => {
+            const lbl = formatLabel(r.executadoEm);
+            _bSum.set(lbl, (_bSum.get(lbl) || 0) + r.duration);
+            _bCnt.set(lbl, (_bCnt.get(lbl) || 0) + 1);
+          });
           const labelMap = new Map();
-          pResults.forEach(r => labelMap.set(formatLabel(r.executadoEm), r.duration));
+          _bSum.forEach((sum, lbl) => labelMap.set(lbl, Math.round(sum / _bCnt.get(lbl))));
           datasets.push({
             label: label,
             data: allLabels.map(lbl => labelMap.get(lbl) ?? null),
-            spanGaps: false,
+            spanGaps: true,
             borderColor: color.line, backgroundColor: color.fill, fill: false, tension: 0.3,
             pointRadius: pResults.length > 50 ? 2 : 4, borderWidth: 2
           });

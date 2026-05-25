@@ -2,7 +2,7 @@
 
 **Público-alvo:** Analistas e desenvolvedores responsáveis pela manutenção e evolução do sistema  
 **Projeto:** Monitor de Performance para endpoints SOAP/WCF — Grupo DB · Medicina Diagnóstica  
-**Última atualização:** 2026-05-20
+**Última atualização:** 2026-05-25
 
 ---
 
@@ -896,6 +896,48 @@ const _checkAndExecuteDue = async () => {
 };
 ```
 
+A lógica complementar está em `auth/session.js` — `getSession()` não expira a sessão quando `SchedulerManager.list().some(s => s.ativo)` for `true`.
+
+### Corrigir eixo X fora de ordem no gráfico de Agendamentos
+
+**Causa:** Chart.js com `parsing: { xAxisKey, yAxisKey }` e sem `labels` global constrói o eixo X na ordem de inserção dos datasets. Se o agendamento A tem timestamps `22:09` e `23:14` e o agendamento B tem `23:13`, o eixo fica `22:09 → 23:14 → 23:13`.
+
+**Solução aplicada em `_initializeScheduleChart` e `_initializeDashboardScheduleCharts` (`ui/renderer.js`):**
+
+```javascript
+// 1. Construir allLabels logo após allResults sorted por executadoEm
+const allLabels = [...new Set(allResults.map(r => formatLabel(r.executadoEm)))];
+
+// 2. Dentro de cada forEach de profile, agregar por média de bucket
+const _bSum = new Map(), _bCnt = new Map();
+pResults.forEach(r => {
+  const lbl = formatLabel(r.executadoEm);
+  _bSum.set(lbl, (_bSum.get(lbl) || 0) + r.duration);
+  _bCnt.set(lbl, (_bCnt.get(lbl) || 0) + 1);
+});
+const labelMap = new Map();
+_bSum.forEach((sum, lbl) => labelMap.set(lbl, Math.round(sum / _bCnt.get(lbl))));
+
+datasets.push({
+  data: allLabels.map(lbl => labelMap.get(lbl) ?? null),
+  spanGaps: true,   // conecta pontos mesmo com labels de outros agendamentos no meio
+  // ... restante das propriedades
+});
+
+// 3. Passar labels para o Chart.js (sem parsing)
+new Chart(ctx, {
+  data: { labels: allLabels, datasets },
+  options: { /* SEM parsing: { xAxisKey, yAxisKey } */ }
+});
+```
+
+**Regras:**
+- Nunca adicionar `parsing` a esses gráficos — o Chart.js usa os `labels` diretamente.
+- `spanGaps: true` na linha principal evita pontos isolados quando outros agendamentos intercalam timestamps.
+- A agregação por média (em vez de último valor) equaliza a escala Y entre os filtros Hora / Dia / Semana / Mês.
+- A mediana é calculada a partir de **todos os `pResults`** (não do `labelMap`) — não é afetada pela agregação.
+- Manter `spanGaps: false` no dataset de mediana (tracejado, `pointRadius: 0`) para que não extrapole para além da janela de dados do agendamento.
+
 ---
 
 ## 16. Convenções Críticas
@@ -988,10 +1030,14 @@ Os browsers cacheiam arquivos JS e CSS agressivamente. Para garantir que usuári
 |---------|-------------|
 | `storage/engine.js` | v=9 |
 | `storage/schedules.js` | v=10 |
-| `ui/renderer.js` | v=11 |
-| `reports/reports.js` | v=10 |
+| `auth/session.js` | v=10 |
+| `features/scheduler.js` | v=10 |
+| `ui/renderer.js` | v=15 |
+| `reports/reports.js` | v=14 |
 | Demais JS | v=9 |
-| Todos os CSS | v=9 |
+| `css/layout.css` | v=10 |
+| `css/charts.css` | v=10 |
+| Demais CSS | v=9 |
 
 ---
 

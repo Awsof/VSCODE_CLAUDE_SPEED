@@ -543,7 +543,7 @@
 
     <div class="warn">
       <span class="warn-icon">⚠️</span>
-      <span>A sessão expira automaticamente após <strong>8 horas</strong>. Você receberá um aviso 5 minutos antes e será redirecionado para o login.</span>
+      <span>A sessão expira automaticamente após <strong>30 minutos de inatividade</strong>. Você receberá um aviso 5 minutos antes e será redirecionado para o login. Qualquer interação com o sistema (clique, digitação, rolagem) renova o tempo automaticamente.</span>
     </div>
   </div>
 
@@ -596,7 +596,7 @@
         </div>
         <div class="step">
           <div class="step-num"></div>
-          <div class="step-body"><strong>Aba "Agendados"</strong> — mostra a performance dos agendamentos com filtros de 1h, 24h, 7 dias e 30 dias. Inclui a taxa de sucesso por endpoint.</div>
+          <div class="step-body"><strong>Aba "Agendados"</strong> — mostra a performance dos agendamentos com filtros de 1h, 24h, 7 dias e 30 dias. Cada agendamento aparece como uma linha contínua no gráfico. Cada ponto representa a <em>média</em> dos tempos de resposta do bucket de tempo (minuto para 1h/24h; hora para 7d/30d), tornando a escala vertical comparável entre os filtros. A linha tracejada indica a mediana histórica de cada agendamento. Inclui a taxa de sucesso por endpoint.</div>
         </div>
       </div>
     </div>
@@ -870,7 +870,7 @@
           </tr>
           <tr>
             <td><strong>HTML</strong></td>
-            <td>Relatório visual completo com 4 gráficos interativos, tabela por teste e resultados detalhados. Abre em nova aba — use o botão <strong>Imprimir / Salvar PDF</strong> para gerar PDF via navegador.</td>
+            <td>Relatório visual completo com 4 gráficos interativos, tabela por teste e resultados detalhados com seções recolhíveis. Abre em nova aba — use <strong>Imprimir / Salvar PDF</strong> para gerar PDF ou <strong>Salvar como HTML</strong> para baixar o arquivo e manter os recursos interativos.</td>
           </tr>
           <tr>
             <td><strong>CSV</strong></td>
@@ -905,6 +905,10 @@
         <div class="step">
           <div class="step-num"></div>
           <div class="step-body">Para salvar como PDF, clique no botão <strong>Imprimir / Salvar PDF</strong> no canto superior direito do relatório e escolha "Salvar como PDF" na caixa de impressão do navegador.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Para salvar o relatório como arquivo HTML (mantendo gráficos interativos e seções recolhíveis), clique em <strong>💾 Salvar como HTML</strong>. O arquivo baixado pode ser aberto em qualquer navegador sem precisar de conexão com o sistema.</div>
         </div>
       </div>
     </div>
@@ -979,7 +983,7 @@
         </div>
         <div class="step">
           <div class="step-num"></div>
-          <div class="step-body">O <strong>tempo restante</strong> de sessão (a sessão dura 8 horas; o contador na barra lateral mostra o tempo em minutos).</div>
+          <div class="step-body">O <strong>tempo restante</strong> de sessão (a sessão expira após 30 minutos de inatividade; qualquer interação com o sistema renova o tempo).</div>
         </div>
         <div class="step">
           <div class="step-num"></div>
@@ -1019,7 +1023,7 @@
 
     <div class="card">
       <strong>Os agendamentos pararam de rodar — por quê?</strong>
-      <p style="margin-top:8px;color:var(--muted);">Os agendamentos funcionam apenas enquanto a aplicação está aberta no navegador. Se a aba foi fechada ou o computador desligado, os testes automáticos ficam em pausa até a próxima vez que o sistema for aberto.</p>
+      <p style="margin-top:8px;color:var(--muted);">Os agendamentos funcionam apenas enquanto a aplicação está aberta no navegador. Se a aba foi fechada ou o computador desligado, os testes automáticos ficam em pausa até a próxima vez que o sistema for aberto. Enquanto houver agendamentos ativos, a sessão <strong>não expira</strong> por inatividade — você pode deixar a aba aberta em segundo plano sem se preocupar com o logout automático.</p>
     </div>
 
     <div class="card">

@@ -59,6 +59,7 @@ Each module registers itself on `window`. These are the actual global names:
 | `ScenariosManager` | `storage/scenarios.js` | `create, list, getById, update, delete` |
 | `ResultsManager` | `storage/results.js` | `save, list, getById, getStats, cleanup` |
 | `SchedulerManager` | `storage/schedules.js` | `create, list, getById, update, delete, getDue` |
+| `MethodsManager` | `storage/methods.js` | `list, getById, create, update, delete_, count` |
 | `AuditLogManager` | `storage/audit-log.js` | `log, list, getByUser` |
 | `SessionManager` | `auth/session.js` | `login, logout, getSession, getCurrentUser, isAuthenticated` |
 | `RBACManager` | `auth/rbac.js` | `canCurrent, can, isAdmin, getPermissionsForLevel` |
@@ -73,13 +74,15 @@ Each module registers itself on `window`. These are the actual global names:
 | `RunnerEngine` | `engine/runner.js` | `run, executeRequest, on` |
 | `ScenarioExecutor` | `features/executor.js` | `execute, cancel, on` |
 | `ScheduleRunner` | `features/scheduler.js` | `start, stop, on` |
-| `ReportsManager` | `reports/reports.js` | `exportExcel, exportCSV, exportHTML, getSummary, getRows` |
+| `ReportsManager` | `reports/reports.js` | `exportExcel, exportCSV, exportHTML(options), getSummary, getRows` |
 
 ### Storage Layer
 
 All localStorage keys use the `stp_v3_` prefix (prevents conflicts with legacy v2 data). `StorageEngine` is the generic abstraction; domain managers wrap it with entity-specific validation.
 
 Maximum 5,000 execution results are stored; auto-cleanup removes oldest records on each `save()` call beyond the limit.
+
+**`MethodsManager` exception:** `storage/methods.js` is loaded in `index.html` and stores SOAP method definitions, but it is intentionally absent from `app.js`'s `_validateModules` list — a missing `methods.js` will not abort bootstrap. Its SOAP method schema includes `soapAction`, `payloadTemplate`, and `xmlTag` fields used by the execution engine.
 
 ### Authentication & RBAC
 
@@ -115,6 +118,34 @@ The manual charts section (tab "Manuais") has four filter buttons that control b
 `_getManualResultsByFilter(filter)` is the data-source function. `_initializeDashboardManualCharts(filter = 'last')` renders both charts and updates button styles. Adding a new filter requires: a new button in `_renderDashboard()`, a listener in `_attachEventListeners()`, and a `slice(-N)` case in `_getManualResultsByFilter`.
 
 **Chart B (histogram)** renders one bar-dataset per profile using `_daProfileColors`, so profiles with different response-time distributions are visually distinct. The x-axis bucket bounds are shared across all profiles and scaled to the global `maxDur`.
+
+The schedule charts section (tab "Agendados") has four filter buttons (1h / 24h / 7d / 30d) controlling `_initializeDashboardScheduleCharts(filter)` (dashboard) and `_initializeScheduleChart(filter)` (Agendamentos tab). Both functions produce one line-dataset per schedule/profile pair using `_CHART_PALETTE`.
+
+**X-axis ordering:** datasets use **arrays aligned to a shared `allLabels`** — not `{x,y}` objects with `parsing`. This prevents Chart.js from inserting labels out of order when two schedules run at different timestamps.
+
+**Bucket aggregation (average):** each time bucket shows the **average** duration of all results in that bucket, not just the last one. This ensures the Y-axis scale is comparable across Hora/Dia/Semana/Mês filters.
+
+**`spanGaps: true`** on main execution line datasets — connects the line across null entries caused by interleaved timestamps from other schedules. The dashed median dataset keeps `spanGaps: false`.
+
+```js
+// Built immediately after allResults is sorted chronologically:
+const allLabels = [...new Set(allResults.map(r => formatLabel(r.executadoEm)))];
+
+// Each dataset built via average per bucket:
+const _bSum = new Map(), _bCnt = new Map();
+pResults.forEach(r => {
+  const lbl = formatLabel(r.executadoEm);
+  _bSum.set(lbl, (_bSum.get(lbl) || 0) + r.duration);
+  _bCnt.set(lbl, (_bCnt.get(lbl) || 0) + 1);
+});
+const labelMap = new Map();
+_bSum.forEach((sum, lbl) => labelMap.set(lbl, Math.round(sum / _bCnt.get(lbl))));
+data: allLabels.map(lbl => labelMap.get(lbl) ?? null), spanGaps: true
+```
+
+The median is calculated from **all raw `pResults`**, not from `labelMap` — it is unaffected by the bucket aggregation.
+
+Do **not** add `parsing: { xAxisKey, yAxisKey }` to these charts — it is intentionally absent; Chart.js uses `labels` directly.
 
 ### CSS Responsiveness
 
@@ -163,10 +194,10 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/ui/renderer.js` | v=14 |
+| `assets/js/ui/renderer.js` | v=15 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=10 |
-| `assets/js/reports/reports.js` | v=13 |
+| `assets/js/reports/reports.js` | v=14 |
 | `assets/js/auth/session.js` | v=10 |
 | All other JS/CSS | v=9 |
 

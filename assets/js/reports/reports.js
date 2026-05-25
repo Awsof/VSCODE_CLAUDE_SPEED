@@ -394,6 +394,7 @@ details.test-detail-group table{border-radius:0;border:none}
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+<button class="print-btn" onclick="downloadReport()">&#128190; Salvar como HTML</button>
 <div class="header">
   <h1>Relat&oacute;rio Speed Teste DBSync</h1>
   <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')}&nbsp;&nbsp;|&nbsp;&nbsp;Filtro: ${filterLabel}</div>
@@ -487,6 +488,15 @@ details.test-detail-group table{border-radius:0;border:none}
       scales:{x:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'},beginAtZero:true},
         y:{ticks:{font:{size:9}},grid:{color:'#f1f5f9'}}}}});
 })();
+function downloadReport(){
+  var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  var b=new Blob([h],{type:'text/html;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download='relatorio-stp-'+new Date().toISOString().slice(0,10)+'.html';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+}
 <\/script>
 </body>
 </html>`;
