@@ -4,6 +4,33 @@
 const ReportsManager = (() => {
   const _getResults = () => ResultsManager.list();
 
+  const _parseCSVLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += c;
+      }
+    }
+    result.push(current);
+    return result;
+  };
+
+  // Gera ID estável a partir do nome do perfil para agrupar resultados importados
+  const _nameToId = (name) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
+    return 'imp-' + Math.abs(h).toString(16).padStart(8, '0');
+  };
+
   const _esc = (s) =>
     String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -87,7 +114,7 @@ const ReportsManager = (() => {
         DuracaoMs: result.duration,
         NumAtendimentoDB: result.numAtendimentoDB || 'N/A',
         UsuarioNome: u ? (u.nome || u.usuario) : (result.executadoPor || '—'),
-        TipoLabel: result.origem === 'scheduled' ? 'Agendado' : 'Manual',
+        TipoLabel: result.origem === 'scheduled' ? 'Agendado' : result.origem === 'imported' ? 'Importado' : 'Manual',
         Origem: result.origem,
         ScheduleId: result.scheduleId || 'N/A',
         ExecutadoPor: result.executadoPor,
@@ -550,11 +577,71 @@ function downloadReport(){
     return file;
   };
 
+  const importCSV = (csvText) => {
+    const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+    if (lines.length < 2) return { imported: 0, errors: 0 };
+
+    const headers = _parseCSVLine(lines[0]);
+    let imported = 0;
+    let errors = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      try {
+        const values = _parseCSVLine(line);
+        const row = {};
+        headers.forEach((h, idx) => { row[h.trim()] = (values[idx] || '').trim(); });
+
+        const profileName = row['Teste'] || row['Endpoint'] || 'Importado';
+
+        // Converter data pt-BR "DD/MM/YYYY, HH:mm:ss" ou "DD/MM/YYYY HH:mm:ss" → ISO
+        let executadoEm = new Date().toISOString();
+        const rawDate = row['ExecutadoEm'] || '';
+        const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2}):(\d{2})/);
+        if (m) {
+          const parsed = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]);
+          if (!isNaN(parsed.getTime())) executadoEm = parsed.toISOString();
+        }
+
+        const duration = parseInt(row['DuracaoMs'], 10);
+        const statusCode = row['StatusCode'] && row['StatusCode'] !== 'N/A' ? parseInt(row['StatusCode'], 10) || null : null;
+        const numAtend = row['NumAtendimentoDB'] && row['NumAtendimentoDB'] !== 'N/A' ? row['NumAtendimentoDB'] : null;
+        const scheduleId = row['ScheduleId'] && row['ScheduleId'] !== 'N/A' ? row['ScheduleId'] : null;
+
+        const result = ResultsManager.add({
+          profileId: _nameToId(profileName),
+          endpoint: profileName,
+          version: 'v3',
+          duration: isNaN(duration) ? 0 : duration,
+          statusCode,
+          success: row['Status'] === 'OK',
+          numAtendimentoDB: numAtend,
+          requestPayload: null,
+          responseBody: null,
+          errorDetail: null,
+          origem: 'imported',
+          scheduleId,
+          executadoPor: 'imported',
+          executadoEm,
+          cenarioId: null
+        });
+
+        if (result) imported++; else errors++;
+      } catch (_) {
+        errors++;
+      }
+    }
+
+    return { imported, errors };
+  };
+
   return {
     getSummary,
     getRows,
     exportExcel,
     exportHTML,
-    exportCSV
+    exportCSV,
+    importCSV
   };
 })();

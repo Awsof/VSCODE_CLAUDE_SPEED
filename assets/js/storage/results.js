@@ -159,14 +159,14 @@ const ResultsManager = (() => {
         duration: duration || 0,
         statusCode: statusCode || null,
         success: success === true,
-        numAtendimentoDB: numAtendimentoDB || null, // Sempre presente, mas pode ser null
+        numAtendimentoDB: numAtendimentoDB || null,
         requestPayload: requestPayload || null,
         responseBody: responseBody || null,
         errorDetail: errorDetail || null,
         origem: origem || 'manual',
         scheduleId: scheduleId || null,
         executadoPor,
-        executadoEm: new Date().toISOString(),
+        executadoEm: resultData.executadoEm || new Date().toISOString(),
         cenarioId: cenarioId || null
       };
 

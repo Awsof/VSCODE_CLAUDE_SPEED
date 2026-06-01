@@ -430,6 +430,7 @@ const Renderer = (() => {
     if (filters.profileId) filtered = filtered.filter(r => r.profileId === filters.profileId);
     if (filters.tipo === 'manual') filtered = filtered.filter(r => r.origem === 'manual');
     if (filters.tipo === 'agendado') filtered = filtered.filter(r => r.origem === 'scheduled');
+    if (filters.tipo === 'importado') filtered = filtered.filter(r => r.origem === 'imported');
     if (filters.status === 'ok') filtered = filtered.filter(r => r.success);
     if (filters.status === 'erro') filtered = filtered.filter(r => !r.success);
     if (filters.de) filtered = filtered.filter(r => new Date(r.executadoEm) >= new Date(filters.de));
@@ -461,6 +462,7 @@ const Renderer = (() => {
               <option value="" ${!filters.tipo ? 'selected' : ''}>Todos</option>
               <option value="manual" ${filters.tipo === 'manual' ? 'selected' : ''}>Manual</option>
               <option value="agendado" ${filters.tipo === 'agendado' ? 'selected' : ''}>Agendado</option>
+              <option value="importado" ${filters.tipo === 'importado' ? 'selected' : ''}>Importado</option>
             </select>
           </label>
           <label class="field" style="min-width:120px;margin:0;">
@@ -502,7 +504,7 @@ const Renderer = (() => {
               ${filtered.length ? filtered.map(result => `
                 <tr>
                   <td>${result.seq}</td>
-                  <td>${result.origem === 'scheduled' ? '<span class="badge info">Agend.</span>' : '<span class="badge secondary" style="color:var(--text-muted);">Manual</span>'}</td>
+                  <td>${result.origem === 'scheduled' ? '<span class="badge info">Agend.</span>' : result.origem === 'imported' ? '<span class="badge warning">Import.</span>' : '<span class="badge secondary" style="color:var(--text-muted);">Manual</span>'}</td>
                   <td>${result.endpoint}</td>
                   <td>${result.success ? '<span class="badge success">OK</span>' : '<span class="badge danger">ERRO</span>'}</td>
                   <td style="font-size:0.82em;color:var(--text-muted);">${result.numAtendimentoDB || '—'}</td>
@@ -538,6 +540,8 @@ const Renderer = (() => {
             <p class="section-subtitle">Exporte dados de resultado em HTML, Excel ou CSV.</p>
           </div>
           <div class="button-bar">
+            <button class="button secondary" type="button" id="btn-import-csv-results">Importar CSV</button>
+            <input type="file" id="import-csv-file-input" accept=".csv" style="display:none;">
             <button class="button secondary" type="button" id="btn-export-excel">Exportar Excel</button>
             <button class="button primary" type="button" id="btn-export-html">Exportar HTML</button>
             <button class="button secondary" type="button" id="btn-export-csv">Exportar CSV</button>
@@ -634,7 +638,7 @@ const Renderer = (() => {
                     <td style="font-size:0.82em;color:var(--text-muted);">${r.NumAtendimentoDB || '—'}</td>
                     <td>${r.DuracaoMs} ms</td>
                     <td style="font-size:0.82em;">${getUserName(r.ExecutadoPor)}</td>
-                    <td>${r.Origem === 'scheduled' ? '<span class="badge info" style="font-size:0.8em;">Agendado</span>' : '<span class="badge secondary" style="font-size:0.8em;color:var(--text-muted);">Manual</span>'}</td>
+                    <td>${r.Origem === 'scheduled' ? '<span class="badge info" style="font-size:0.8em;">Agendado</span>' : r.Origem === 'imported' ? '<span class="badge warning" style="font-size:0.8em;">Importado</span>' : '<span class="badge secondary" style="font-size:0.8em;color:var(--text-muted);">Manual</span>'}</td>
                     <td>${r.ExecutadoEm}</td>
                   </tr>
                 `).join('') : '<tr><td colspan="8" class="empty-state">Nenhum dado disponível.</td></tr>'}
@@ -2503,6 +2507,35 @@ const Renderer = (() => {
         } catch (error) {
           NotificationsManager.danger('Falha ao exportar CSV: ' + error.message);
         }
+      });
+    }
+
+    const importCsvBtn = document.getElementById('btn-import-csv-results');
+    const importCsvInput = document.getElementById('import-csv-file-input');
+    if (importCsvBtn && importCsvInput) {
+      importCsvBtn.addEventListener('click', () => importCsvInput.click());
+      importCsvInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const { imported, errors } = ReportsManager.importCSV(ev.target.result);
+            if (imported > 0) {
+              NotificationsManager.success(`${imported} resultado(s) importado(s) com sucesso${errors > 0 ? ` (${errors} linha(s) ignoradas)` : ''}`);
+              _renderMainContent('reports');
+              _attachEventListeners();
+            } else if (errors > 0) {
+              NotificationsManager.danger(`Nenhum resultado importado. Verifique se o arquivo é um CSV exportado por este sistema.`);
+            } else {
+              NotificationsManager.warning('Arquivo CSV vazio ou sem dados.');
+            }
+          } catch (err) {
+            NotificationsManager.danger('Falha ao ler o arquivo: ' + err.message);
+          }
+        };
+        reader.readAsText(file, 'UTF-8');
+        e.target.value = '';
       });
     }
 
