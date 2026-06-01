@@ -2988,6 +2988,26 @@ const Renderer = (() => {
       </div>
     `;
 
+    ScheduleRunner.on('schedule-executed', () => {
+      const main = document.getElementById('app-content');
+      if (!main) return;
+      if (state.activeTab === 'results') {
+        const filters = {
+          profileId: document.getElementById('filter-profile')?.value || '',
+          tipo:      document.getElementById('filter-tipo')?.value   || '',
+          status:    document.getElementById('filter-status')?.value || '',
+          de:        document.getElementById('filter-de')?.value     || '',
+          ate:       document.getElementById('filter-ate')?.value    || ''
+        };
+        main.innerHTML = _renderResults(filters);
+        _attachEventListeners();
+      } else if (state.activeTab === 'dashboard') {
+        _renderMainContent('dashboard');
+        _attachEventListeners();
+        setTimeout(_initializeDashboardCharts, 100);
+      }
+    });
+
     _navigate(state.activeTab);
   };
 
