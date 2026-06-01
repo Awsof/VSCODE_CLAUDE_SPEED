@@ -417,31 +417,46 @@ const Renderer = (() => {
   };
 
   const _renderResults = (filters = {}) => {
-    const profiles = ProfilesManager.list();
-    const allUsers = UsersManager.list();
+    const PAGE_SIZE = 100;
+    const profiles  = ProfilesManager.list();
+    const allUsers  = UsersManager.list();
     const getUserName = (userId) => {
       const u = allUsers.find(u => u.id === userId);
       return u ? (u.nome || u.usuario) : (userId ? userId.slice(0, 8) : '—');
     };
-    const allResults = ResultsManager.list().slice(-500).reverse();
+
+    // Todos os resultados mais recentes primeiro
+    const allRaw      = ResultsManager.list().reverse();
+    const totalStored = allRaw.length;
 
     // Aplicar filtros
-    let filtered = allResults;
+    let filtered = allRaw;
     if (filters.profileId) filtered = filtered.filter(r => r.profileId === filters.profileId);
-    if (filters.tipo === 'manual') filtered = filtered.filter(r => r.origem === 'manual');
-    if (filters.tipo === 'agendado') filtered = filtered.filter(r => r.origem === 'scheduled');
+    if (filters.tipo === 'manual')    filtered = filtered.filter(r => r.origem === 'manual');
+    if (filters.tipo === 'agendado')  filtered = filtered.filter(r => r.origem === 'scheduled');
     if (filters.tipo === 'importado') filtered = filtered.filter(r => r.origem === 'imported');
-    if (filters.status === 'ok') filtered = filtered.filter(r => r.success);
+    if (filters.status === 'ok')   filtered = filtered.filter(r => r.success);
     if (filters.status === 'erro') filtered = filtered.filter(r => !r.success);
-    if (filters.de) filtered = filtered.filter(r => new Date(r.executadoEm) >= new Date(filters.de));
+    if (filters.de)  filtered = filtered.filter(r => new Date(r.executadoEm) >= new Date(filters.de));
     if (filters.ate) filtered = filtered.filter(r => new Date(r.executadoEm) <= new Date(filters.ate + 'T23:59:59'));
 
+    // Paginação
+    const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, parseInt(filters.page, 10) || 1), totalPages);
+    const start       = (currentPage - 1) * PAGE_SIZE;
+    const paginated   = filtered.slice(start, start + PAGE_SIZE);
+    const rangeEnd    = Math.min(start + PAGE_SIZE, filtered.length);
+    const rangeLabel  = filtered.length > 0
+      ? `Exibindo ${start + 1}–${rangeEnd} de ${filtered.length}${filtered.length < totalStored ? ` filtrado(s)` : ''} (${totalStored} armazenados)`
+      : `Nenhum resultado encontrado (${totalStored} armazenados)`;
+
     return `
+      <input type="hidden" id="results-page" value="${currentPage}">
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
             <h2 class="section-title">Resultados</h2>
-            <p class="section-subtitle">Histórico das execuções com filtros. Exibindo ${filtered.length} de ${allResults.length} registros.</p>
+            <p class="section-subtitle">${rangeLabel}</p>
           </div>
           <div class="button-bar">
             <button class="button secondary" type="button" id="btn-export-results">Exportar</button>
@@ -460,7 +475,7 @@ const Renderer = (() => {
             Tipo
             <select id="filter-tipo">
               <option value="" ${!filters.tipo ? 'selected' : ''}>Todos</option>
-              <option value="manual" ${filters.tipo === 'manual' ? 'selected' : ''}>Manual</option>
+              <option value="manual"   ${filters.tipo === 'manual'   ? 'selected' : ''}>Manual</option>
               <option value="agendado" ${filters.tipo === 'agendado' ? 'selected' : ''}>Agendado</option>
               <option value="importado" ${filters.tipo === 'importado' ? 'selected' : ''}>Importado</option>
             </select>
@@ -469,7 +484,7 @@ const Renderer = (() => {
             Status
             <select id="filter-status">
               <option value="" ${!filters.status ? 'selected' : ''}>Todos</option>
-              <option value="ok" ${filters.status === 'ok' ? 'selected' : ''}>OK</option>
+              <option value="ok"   ${filters.status === 'ok'   ? 'selected' : ''}>OK</option>
               <option value="erro" ${filters.status === 'erro' ? 'selected' : ''}>Erro</option>
             </select>
           </label>
@@ -501,7 +516,7 @@ const Renderer = (() => {
               </tr>
             </thead>
             <tbody>
-              ${filtered.length ? filtered.map(result => `
+              ${paginated.length ? paginated.map(result => `
                 <tr>
                   <td>${result.seq}</td>
                   <td>${result.origem === 'scheduled' ? '<span class="badge info">Agend.</span>' : result.origem === 'imported' ? '<span class="badge warning">Import.</span>' : '<span class="badge secondary" style="color:var(--text-muted);">Manual</span>'}</td>
@@ -518,6 +533,12 @@ const Renderer = (() => {
             </tbody>
           </table>
         </div>
+        ${totalPages > 1 ? `
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px;padding:14px 0 2px;">
+          <button id="btn-page-prev" class="button secondary small" ${currentPage <= 1 ? 'disabled' : ''}>← Anterior</button>
+          <span style="font-size:0.88rem;color:var(--text-muted);">Página ${currentPage} de ${totalPages}</span>
+          <button id="btn-page-next" class="button secondary small" ${currentPage >= totalPages ? 'disabled' : ''}>Próxima →</button>
+        </div>` : ''}
       </section>
     `;
   };
@@ -2332,10 +2353,11 @@ const Renderer = (() => {
           confirmText: 'Limpar',
           cancelText: 'Cancelar',
           onConfirm: () => {
-            ResultsManager.clear();
-            NotificationsManager.success('Registros limpos com sucesso');
-            _renderMainContent('results');
-            _attachEventListeners();
+            ResultsManager.clear().then(() => {
+              NotificationsManager.success('Registros limpos com sucesso');
+              _renderMainContent('results');
+              _attachEventListeners();
+            });
           }
         });
       });
@@ -2394,35 +2416,41 @@ const Renderer = (() => {
       if (panel) panel.style.display = 'none';
     });
 
-    // Filtros de resultados
-    const applyFiltersBtn = document.getElementById('btn-apply-filters');
-    if (applyFiltersBtn) {
-      applyFiltersBtn.addEventListener('click', () => {
-        const filters = {
-          profileId: document.getElementById('filter-profile')?.value || '',
-          tipo: document.getElementById('filter-tipo')?.value || '',
-          status: document.getElementById('filter-status')?.value || '',
-          de: document.getElementById('filter-de')?.value || '',
-          ate: document.getElementById('filter-ate')?.value || ''
-        };
-        const main = document.getElementById('app-content');
-        if (main) {
-          main.innerHTML = _renderResults(filters);
-          _attachEventListeners();
-        }
-      });
-    }
+    // Helper: lê filtros atuais do DOM (preserva estado entre re-renders)
+    const _readResultFilters = (overrides = {}) => ({
+      profileId: document.getElementById('filter-profile')?.value || '',
+      tipo:      document.getElementById('filter-tipo')?.value   || '',
+      status:    document.getElementById('filter-status')?.value || '',
+      de:        document.getElementById('filter-de')?.value     || '',
+      ate:       document.getElementById('filter-ate')?.value    || '',
+      page:      document.getElementById('results-page')?.value  || '1',
+      ...overrides
+    });
 
-    const clearFiltersBtn = document.getElementById('btn-clear-filters');
-    if (clearFiltersBtn) {
-      clearFiltersBtn.addEventListener('click', () => {
-        const main = document.getElementById('app-content');
-        if (main) {
-          main.innerHTML = _renderResults({});
-          _attachEventListeners();
-        }
-      });
-    }
+    const _applyResultFilters = (filters) => {
+      const main = document.getElementById('app-content');
+      if (main) { main.innerHTML = _renderResults(filters); _attachEventListeners(); }
+    };
+
+    // Filtros de resultados
+    document.getElementById('btn-apply-filters')?.addEventListener('click', () => {
+      _applyResultFilters(_readResultFilters({ page: '1' }));
+    });
+
+    document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
+      _applyResultFilters({});
+    });
+
+    // Paginação
+    document.getElementById('btn-page-prev')?.addEventListener('click', () => {
+      const p = Math.max(1, parseInt(_readResultFilters().page, 10) - 1);
+      _applyResultFilters(_readResultFilters({ page: String(p) }));
+    });
+
+    document.getElementById('btn-page-next')?.addEventListener('click', () => {
+      const p = parseInt(_readResultFilters().page, 10) + 1;
+      _applyResultFilters(_readResultFilters({ page: String(p) }));
+    });
 
     const exportButton = document.getElementById('btn-export-results');
     if (exportButton) {
@@ -3025,12 +3053,14 @@ const Renderer = (() => {
       const main = document.getElementById('app-content');
       if (!main) return;
       if (state.activeTab === 'results') {
+        // Preservar filtros e página atual no auto-refresh
         const filters = {
           profileId: document.getElementById('filter-profile')?.value || '',
           tipo:      document.getElementById('filter-tipo')?.value   || '',
           status:    document.getElementById('filter-status')?.value || '',
           de:        document.getElementById('filter-de')?.value     || '',
-          ate:       document.getElementById('filter-ate')?.value    || ''
+          ate:       document.getElementById('filter-ate')?.value    || '',
+          page:      document.getElementById('results-page')?.value  || '1'
         };
         main.innerHTML = _renderResults(filters);
         _attachEventListeners();

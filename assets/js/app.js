@@ -12,12 +12,14 @@ const AppBootstrap = (() => {
   /**
    * Inicializar aplicação
    */
-  const init = () => {
+  const init = async () => {
     console.log('%cSpeed Teste DBSync', 'font-size:16px;font-weight:bold;color:#003761;');
     console.log('[AppBootstrap] Inicializando aplicação...');
 
-
     try {
+      // ========== STEP 0: Inicializar IndexedDB de resultados ==========
+      await ResultsManager.init();
+
       // ========== STEP 1: Carregar dados persistentes ==========
       console.log('[AppBootstrap] Carregando dados do localStorage...');
       
@@ -198,14 +200,16 @@ const AppBootstrap = (() => {
    * Executar na primeira carga do documento
    */
   const start = () => {
+    const run = async () => {
+      _validateModules();
+      await init();
+    };
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
-        _validateModules();
-        init();
+        run().catch(err => _showErrorScreen('Erro ao inicializar: ' + err.message));
       });
     } else {
-      _validateModules();
-      init();
+      run().catch(err => _showErrorScreen('Erro ao inicializar: ' + err.message));
     }
   };
 
