@@ -4,6 +4,19 @@
 const ReportsManager = (() => {
   const _getResults = () => ResultsManager.list();
 
+  const _applyDateFilter = (results, filters = {}) => {
+    let r = results;
+    if (filters.de) {
+      const start = new Date(filters.de + 'T00:00:00').getTime();
+      r = r.filter(x => new Date(x.executadoEm).getTime() >= start);
+    }
+    if (filters.ate) {
+      const end = new Date(filters.ate + 'T23:59:59').getTime();
+      r = r.filter(x => new Date(x.executadoEm).getTime() <= end);
+    }
+    return r;
+  };
+
   const _parseCSVLine = (line) => {
     const result = [];
     let current = '';
@@ -43,8 +56,8 @@ const ReportsManager = (() => {
     return p ? p.nome : (profileId || '—');
   };
 
-  const getSummary = () => {
-    const results = _getResults();
+  const getSummary = (filters = {}) => {
+    const results = _applyDateFilter(_getResults(), filters);
     const profiles = typeof ProfilesManager !== 'undefined' ? ProfilesManager.list() : [];
     const total = results.length;
     const successful = results.filter(r => r.success).length;
@@ -99,11 +112,11 @@ const ReportsManager = (() => {
     };
   };
 
-  const getRows = () => {
+  const getRows = (filters = {}) => {
     const users = typeof UsersManager !== 'undefined' ? UsersManager.list() : [];
     const profiles = typeof ProfilesManager !== 'undefined' ? ProfilesManager.list() : [];
     const getUser = (id) => users.find(u => u.id === id);
-    return _getResults().map(result => {
+    return _applyDateFilter(_getResults(), filters).map(result => {
       const u = getUser(result.executadoPor);
       return {
         Seq: result.seq,
@@ -123,9 +136,9 @@ const ReportsManager = (() => {
     });
   };
 
-  const exportExcel = (filename = null) => {
+  const exportExcel = (filters = {}, filename = null) => {
     if (typeof XLSX === 'undefined') throw new Error('XLSX não carregado');
-    const rows = getRows();
+    const rows = getRows(filters);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Resultados');
@@ -151,6 +164,15 @@ const ReportsManager = (() => {
       results = results.filter(r => ids.has(r.profileId));
       const g = GroupsManager.getById(options.groupId);
       filterLabel = `Grupo: ${g ? g.nome : options.groupId}`;
+    }
+
+    // --- Filtro de data ---
+    results = _applyDateFilter(results, options);
+    if (options.de || options.ate) {
+      const parts = [];
+      if (options.de)  parts.push(`De: ${options.de}`);
+      if (options.ate) parts.push(`Até: ${options.ate}`);
+      filterLabel += (filterLabel === 'Todos os resultados' ? '' : ' — ') + parts.join(', ');
     }
 
     const users = UsersManager.list();
@@ -552,8 +574,8 @@ function downloadReport(){
     return 'relatório HTML aberto';
   };
 
-  const exportCSV = (filename = null) => {
-    const rows = getRows();
+  const exportCSV = (filters = {}, filename = null) => {
+    const rows = getRows(filters);
     if (rows.length === 0) return null;
 
     const header = Object.keys(rows[0]);

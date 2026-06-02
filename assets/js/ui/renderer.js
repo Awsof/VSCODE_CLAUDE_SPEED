@@ -543,9 +543,9 @@ const Renderer = (() => {
     `;
   };
 
-  const _renderReports = () => {
-    const summary = ReportsManager.getSummary();
-    const rows = ReportsManager.getRows();
+  const _renderReports = (filters = {}) => {
+    const summary = ReportsManager.getSummary(filters);
+    const rows = ReportsManager.getRows(filters);
     const allUsers = UsersManager.list();
     const profiles = ProfilesManager.list();
     const groups = GroupsManager.list();
@@ -553,12 +553,14 @@ const Renderer = (() => {
       const u = allUsers.find(u => u.id === id);
       return u ? (u.nome || u.usuario) : (id ? id.slice(0, 8) : '—');
     };
+    const totalStored = ResultsManager.count();
+    const filterActive = !!(filters.de || filters.ate);
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
             <h2 class="section-title">Relatórios</h2>
-            <p class="section-subtitle">Exporte dados de resultado em HTML, Excel ou CSV.</p>
+            <p class="section-subtitle">Exporte dados de resultado em HTML, Excel ou CSV.${filterActive ? ` <span style="color:var(--action);font-weight:600;">(${summary.total} de ${totalStored} resultado(s) filtrados)</span>` : ''}</p>
           </div>
           <div class="button-bar">
             <button class="button secondary" type="button" id="btn-import-csv-results">Importar CSV</button>
@@ -570,7 +572,7 @@ const Renderer = (() => {
         </div>
 
         <div style="padding:14px 0 18px;border-bottom:1px solid var(--border);margin-bottom:18px;">
-          <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Filtro do Relatório HTML</div>
+          <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Filtros do Relatório</div>
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
             <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;">
               <input type="radio" name="html-filter" value="all" checked> Todos os resultados
@@ -589,6 +591,16 @@ const Renderer = (() => {
               <option value="">Selecione um grupo...</option>
               ${groups.map(g => `<option value="${g.id}">${g.nome}</option>`).join('')}
             </select>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+            <label style="font-size:0.88rem;display:flex;align-items:center;gap:6px;">De:
+              <input type="date" id="report-filter-de" value="${filters.de || ''}" style="margin-left:2px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;">
+            </label>
+            <label style="font-size:0.88rem;display:flex;align-items:center;gap:6px;">Até:
+              <input type="date" id="report-filter-ate" value="${filters.ate || ''}" style="margin-left:2px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;">
+            </label>
+            <button class="button primary small" id="btn-apply-report-filter" type="button">Aplicar</button>
+            <button class="button secondary small" id="btn-clear-report-filter" type="button">Limpar</button>
           </div>
         </div>
 
@@ -2485,11 +2497,29 @@ const Renderer = (() => {
       });
     }
 
+    const _readReportFilters = () => ({
+      de:  document.getElementById('report-filter-de')?.value  || '',
+      ate: document.getElementById('report-filter-ate')?.value || ''
+    });
+
+    const _applyReportFilters = (filters) => {
+      const main = document.getElementById('app-content');
+      if (main) { main.innerHTML = _renderReports(filters); _attachEventListeners(); }
+    };
+
+    document.getElementById('btn-apply-report-filter')?.addEventListener('click', () => {
+      _applyReportFilters(_readReportFilters());
+    });
+
+    document.getElementById('btn-clear-report-filter')?.addEventListener('click', () => {
+      _applyReportFilters({ de: '', ate: '' });
+    });
+
     const exportExcelButton = document.getElementById('btn-export-excel');
     if (exportExcelButton) {
       exportExcelButton.addEventListener('click', () => {
         try {
-          ReportsManager.exportExcel();
+          ReportsManager.exportExcel(_readReportFilters());
           NotificationsManager.success('Exportação Excel iniciada');
         } catch (error) {
           NotificationsManager.danger('Falha ao exportar Excel: ' + error.message);
@@ -2508,7 +2538,7 @@ const Renderer = (() => {
         if (filterType === 'group' && !groupId)
           return NotificationsManager.warning('Selecione um grupo para o relatório HTML.');
         try {
-          ReportsManager.exportHTML({ type: filterType, profileId, groupId });
+          ReportsManager.exportHTML({ type: filterType, profileId, groupId, ..._readReportFilters() });
           NotificationsManager.success('Relatório HTML aberto em nova aba');
         } catch (error) {
           NotificationsManager.danger('Falha ao gerar relatório HTML: ' + error.message);
@@ -2530,7 +2560,7 @@ const Renderer = (() => {
     if (exportCSVButton) {
       exportCSVButton.addEventListener('click', () => {
         try {
-          ReportsManager.exportCSV();
+          ReportsManager.exportCSV(_readReportFilters());
           NotificationsManager.success('Exportação CSV iniciada');
         } catch (error) {
           NotificationsManager.danger('Falha ao exportar CSV: ' + error.message);
