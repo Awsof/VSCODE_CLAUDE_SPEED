@@ -200,16 +200,18 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/app.js` | v=10 |
+| `assets/js/app.js` | v=12 |
 | `assets/js/ui/renderer.js` | v=19 |
+| `assets/js/ui/login-screen.js` | v=11 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=10 |
-| `assets/js/storage/results.js` | v=11 |
+| `assets/js/storage/results.js` | v=13 |
+| `assets/js/storage/users.js` | v=10 |
 | `assets/js/reports/reports.js` | v=20 |
-| `assets/js/auth/session.js` | v=10 |
+| `assets/js/auth/session.js` | v=12 |
 | All other JS/CSS | v=9 |
 
-## Turso DB Migration (in progress)
+## Turso DB Migration (concluída)
 
 The project is migrating **Results + Users** to a centralized Turso (libSQL/SQLite) database so multiple machines/users can share data. The database is `libsql://speedtestdb-awsof.aws-us-east-1.turso.io`.
 
@@ -221,7 +223,9 @@ The project is migrating **Results + Users** to a centralized Turso (libSQL/SQLi
 - Passwords remain SHA-256 hashed (client hashes, server stores and compares the hash)
 - Other entities (profiles, groups, schedules, scenarios) remain in localStorage for now
 
-**New files being added:** `api/db.js` (Turso client), `api/auth/login.js`, `api/results.js`, `api/users.js`, `api/users/[id].js`
+**Arquivos adicionados:** `api/db.js` (Turso client + JWT), `api/login.js`, `api/results.js`, `api/users.js`, `api/users/[id].js`
+
+**Comportamento do sync:** `syncFromTurso()` é chamado uma vez no login. Não há polling periódico — resultados de outros browsers só aparecem após reload da página.
 
 ## Documentation
 
