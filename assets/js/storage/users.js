@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UsersManager — Gestão de usuários com CRUD, hash SHA-256 e RBAC
  * Chave: users
  * 
@@ -264,6 +264,7 @@ const UsersManager = (() => {
   };
 
   return {
+    init,
     list,
     getById,
     getByUsername,
@@ -277,3 +278,5 @@ const UsersManager = (() => {
     count
   };
 })();
+
+

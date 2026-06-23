@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SessionManager — Gestão de sessão e autenticação
  * Armazenamento: sessionStorage (volátil, apenas para sessão ativa)
  * 
@@ -56,7 +56,14 @@ const SessionManager = (() => {
     const session = getSession();
     if (!session) return null;
 
-    return {
+  
+  /**
+   * Obter JWT token da sessão atual (para chamadas autenticadas à API)
+   */
+  const getToken = () => {
+    return getSession()?.token || null;
+  };
+  return {
       id: session.userId,
       usuario: session.usuario,
       nivel: session.nivel
@@ -84,7 +91,7 @@ const SessionManager = (() => {
    * @param {Object} user - Objeto do usuário (do UsersManager.validate)
    * @returns {boolean} - Sucesso
    */
-  const login = (user) => {
+  const login = (user, jwtToken = null) => {
     try {
       if (!user || !user.id || !user.usuario || !user.nivel) {
         console.error('[SessionManager] Dados de usuário inválidos');
@@ -98,7 +105,7 @@ const SessionManager = (() => {
         nivel: user.nivel,
         loginAt: now,
         lastActivity: now,
-        token: _generateToken()
+        token: jwtToken || _generateToken()
       };
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -216,7 +223,14 @@ const SessionManager = (() => {
     const session = getSession();
     if (!session) return { active: false };
 
-    return {
+  
+  /**
+   * Obter JWT token da sessão atual (para chamadas autenticadas à API)
+   */
+  const getToken = () => {
+    return getSession()?.token || null;
+  };
+  return {
       active: true,
       userId: session.userId,
       usuario: session.usuario,
@@ -227,6 +241,13 @@ const SessionManager = (() => {
     };
   };
 
+
+  /**
+   * Obter JWT token da sessão atual (para chamadas autenticadas à API)
+   */
+  const getToken = () => {
+    return getSession()?.token || null;
+  };
   return {
     getSession,
     getCurrentUser,
@@ -239,6 +260,8 @@ const SessionManager = (() => {
     isNearTimeout,
     getTimeRemaining,
     getDebugInfo,
+    getToken,
     SESSION_TIMEOUT
   };
 })();
+

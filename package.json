@@ -1,1 +1,7 @@
-{ "name": "stp-soap", "version": "2.0.0" }
+﻿{
+  "name": "stp-soap",
+  "version": "2.0.0",
+  "dependencies": {
+    "@libsql/client": "^0.14.0"
+  }
+}

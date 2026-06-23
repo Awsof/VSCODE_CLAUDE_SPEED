@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AppBootstrap — Inicialização da Aplicação Speed Teste DBSync
  * 
  * Fluxo:
@@ -225,3 +225,4 @@ if (document.readyState === 'loading') {
 } else {
   AppBootstrap.start();
 }
+

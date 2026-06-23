@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LoginScreenManager — Telas de Login e Primeiro Acesso
  * Renderiza UI e gerencia formulários de autenticação
  */
@@ -445,3 +445,4 @@ const LoginScreenManager = (() => {
     renderFirstAccessScreen
   };
 })();
+

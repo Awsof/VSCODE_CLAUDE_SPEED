@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ResultsManager — Gestão do histórico de execuções e resultados
  * Backend: IndexedDB (stp_results_v1) com cache em memória para leituras síncronas.
  *
@@ -187,6 +187,7 @@ const ResultsManager = (() => {
 
       _cache.push(newResult);
       _idbPut(newResult);
+      _syncToTurso(newResult);
 
       return newResult;
     } catch (error) {
@@ -266,10 +267,66 @@ const ResultsManager = (() => {
     });
   };
 
+
+  /**
+   * Sincronizar resultados do Turso para o cache local (fire-and-forget opcional).
+   * Chamado pelo app.js após login bem-sucedido.
+   */
+  const syncFromTurso = async () => {
+    try {
+      const token = typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+      if (!token) return;
+
+      const since = _cache.length > 0
+        ? _cache[_cache.length - 1].executadoEm
+        : null;
+
+      const url = '/api/results' + (since ? '?since=' + encodeURIComponent(since) : '');
+      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const tursoResults = data.results || [];
+      if (!tursoResults.length) return;
+
+      const localIds = new Set(_cache.map(r => r.id));
+      const newResults = tursoResults.filter(r => !localIds.has(r.id));
+      if (!newResults.length) return;
+
+      _cache = [..._cache, ...newResults]
+        .sort((a, b) => new Date(a.executadoEm) - new Date(b.executadoEm));
+
+      if (_db) {
+        const tx = _db.transaction('results', 'readwrite');
+        const store = tx.objectStore('results');
+        newResults.forEach(r => store.put(r));
+      }
+
+      console.log('[ResultsManager] ' + newResults.length + ' resultado(s) sincronizado(s) do Turso');
+    } catch (e) {
+      console.warn('[ResultsManager] Sync do Turso falhou (modo offline):', e.message);
+    }
+  };
+
+  /** Enviar resultado para o Turso em background (fire-and-forget) */
+  const _syncToTurso = (result) => {
+    try {
+      const token = typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+      if (!token) return;
+      fetch('/api/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(result)
+      }).catch(e => console.warn('[ResultsManager] Falha ao sincronizar resultado:', e.message));
+    } catch (e) {
+      console.warn('[ResultsManager] _syncToTurso error:', e.message);
+    }
+  };
   const count = () => _cache.length;
 
   return {
     init,
+    syncFromTurso,
     list,
     getById,
     getByProfile,
@@ -288,3 +345,4 @@ const ResultsManager = (() => {
     count
   };
 })();
+
