@@ -19,6 +19,7 @@ const AppBootstrap = (() => {
     try {
       // ========== STEP 0: Inicializar IndexedDB de resultados ==========
       await ResultsManager.init();
+      await UsersManager.init();
 
       // ========== STEP 1: Carregar dados persistentes ==========
       console.log('[AppBootstrap] Carregando dados do localStorage...');
@@ -75,6 +76,7 @@ const AppBootstrap = (() => {
   const _loadMainApp = (currentUser) => {
     console.log('[AppBootstrap] Carregando interface principal...');
     Renderer.renderMainApp(currentUser);
+    ResultsManager.syncFromTurso();
     try {
       ScheduleRunner.start();
     } catch (error) {
