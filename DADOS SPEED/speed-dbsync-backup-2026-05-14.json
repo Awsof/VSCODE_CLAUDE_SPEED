@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "exportadoEm": "2026-05-14T20:37:29.514Z",
+  "methods": [
+    {
+      "id": "e8ca6dd5-5523-4ed3-8c51-3281d6c95766",
+      "nome": "Recebe Atendimento",
+      "operacao": "RecebeAtendimento",
+      "soapAction": "http://diagnosticosdobrasil.com.br/RecebeAtendimento",
+      "payloadTemplate": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:diag=\"http://diagnosticosdobrasil.com.br\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <diag:RecebeAtendimento>\n         \n         <diag:atendimento>\n            \n            <diag:CodigoApoiado>{{CODIGO_APOIADO}}</diag:CodigoApoiado>\n            \n            <diag:CodigoSenhaIntegracao>{{CODIGO_SENHA}}</diag:CodigoSenhaIntegracao>\n            \n            <diag:Pedido>\n               \n               <diag:NumeroAtendimentoApoiado>{{NUM_ATENDIMENTO}}</diag:NumeroAtendimentoApoiado>\n               \n               <diag:ListaPacienteApoiado>\n                                   \n                  <diag:NomePaciente>TESTE DB PADRAO</diag:NomePaciente>\n                  \n                  <diag:SexoPaciente>F</diag:SexoPaciente>\n                  <diag:DataHoraPaciente>1989-09-27T00:00:00</diag:DataHoraPaciente>\n                                    \n               </diag:ListaPacienteApoiado>\n               \n               <diag:ListaProcedimento>\n                  \n                  <diag:ct_Procedimento_v2>\n                     \n                     <diag:CodigoExameDB>MIC24</diag:CodigoExameDB>\n                                        \n                     <diag:VolumeUrinario>2026</diag:VolumeUrinario>\n                     \n                  </diag:ct_Procedimento_v2>\n                  <diag:ct_Procedimento_v2>\n                     \n                     <diag:CodigoExameDB>TSH</diag:CodigoExameDB>\n                                                             \n                  </diag:ct_Procedimento_v2>\n\t\t\t\t  <diag:ct_Procedimento_v2>\n                     \n                     <diag:CodigoExameDB>FAN</diag:CodigoExameDB>\n                                                             \n                  </diag:ct_Procedimento_v2>\n\t\t\t\t  <diag:ct_Procedimento_v2>\n                     \n                     <diag:CodigoExameDB>CC4</diag:CodigoExameDB>\n                                                             \n                  </diag:ct_Procedimento_v2>\n\t\t\t\t  <diag:ct_Procedimento_v2>\n                     \n                     <diag:CodigoExameDB>BIOP</diag:CodigoExameDB>\n                     <diag:DescricaoRegiaoColeta>REGIAO TESTE</diag:DescricaoRegiaoColeta>                                        \n                  </diag:ct_Procedimento_v2>\n               </diag:ListaProcedimento>\n            </diag:Pedido>\n         </diag:atendimento>\n      </diag:RecebeAtendimento>\n   </soapenv:Body>\n</soapenv:Envelope>",
+      "xmlTag": "diag:NumeroAtendimentoDB",
+      "descricao": "Metodo de envio de atendimento",
+      "criadoPor": "admin",
+      "criadoEm": "2026-05-14T19:26:46.432Z"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "70cf4a24-5404-4ae5-973e-416441561a7e",
+      "nome": "TESTE 12588",
+      "codigo": "PRD",
+      "url": "https://wsmb.diagnosticosdobrasil.com.br/dbsync/wsrvProtocoloDBSync.dbsync.svc",
+      "version": "2025.1",
+      "payloadTemplate": null,
+      "xmlTag": "diag:NumeroAtendimentoApoiado",
+      "soapAction": null,
+      "codigoApoiado": "12588",
+      "codigoSenha": "hovaho23",
+      "cor": "#1920f0",
+      "groupId": null,
+      "criadoPor": "admin",
+      "criadoEm": "2026-05-14T19:27:45.086Z",
+      "methodId": "e8ca6dd5-5523-4ed3-8c51-3281d6c95766"
+    }
+  ],
+  "groups": [],
+  "users": [
+    {
+      "id": "2429cacc-69e2-4299-94fa-7aa249e2cd77",
+      "nome": "Administrador",
+      "email": "admin@dbsync.local",
+      "usuario": "admin",
+      "senhaHash": "c1c224b03cd9bc7b6a86d77f5dace40191766c485cd55dc48caf9ac873335d6f",
+      "nivel": "admin",
+      "ativo": true,
+      "criadoEm": "2026-05-14T19:19:57.495Z"
+    }
+  ]
+}

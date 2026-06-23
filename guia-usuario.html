@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guia do Usuário — Speed Teste DBSync</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #003761;
+      --teal:   #0F9B94;
+      --gold:   #C49B3C;
+      --bg:     #F8F9FA;
+      --white:  #FFFFFF;
+      --text:   #0F172A;
+      --muted:  #475569;
+      --soft:   #64748B;
+      --border: #D1D5DB;
+      --success:#16A34A;
+      --warn:   #F59E0B;
+      --danger: #DC2626;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #005a9e 100%);
+      color: white;
+      padding: 48px 40px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      right: -60px; top: -60px;
+      width: 320px; height: 320px;
+      background: rgba(15,155,148,.18);
+      border-radius: 50%;
+    }
+    .hero-logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .hero-logo img { height: 48px; }
+    .hero-logo-text { font-size: 1.1rem; font-weight: 700; opacity: .9; }
+    .hero h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: 10px; }
+    .hero-sub { font-size: 1rem; opacity: .8; max-width: 520px; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(15,155,148,.35);
+      border: 1px solid rgba(15,155,148,.6);
+      color: #7ff5ef;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    /* ── DOWNLOAD BAR ── */
+    .download-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(15,23,42,.06);
+    }
+    .download-bar-info { font-size: .85rem; color: var(--muted); }
+    .download-bar-info strong { color: var(--text); }
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--teal);
+      color: white;
+      font-family: inherit;
+      font-size: .88rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .btn-download:hover { background: #0a7a75; transform: translateY(-1px); }
+    .btn-download svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ── LAYOUT ── */
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--teal);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 40px;
+    }
+    .toc-title { font-size: .75rem; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 14px; }
+    .toc ol { padding-left: 18px; }
+    .toc li { margin: 6px 0; }
+    .toc a { color: var(--navy); text-decoration: none; font-size: .9rem; font-weight: 500; }
+    .toc a:hover { color: var(--teal); text-decoration: underline; }
+
+    /* ── SECTION ── */
+    .section { margin-bottom: 48px; }
+    .section-anchor { display: block; height: 80px; margin-top: -80px; visibility: hidden; }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .section-num {
+      min-width: 40px; height: 40px;
+      background: var(--navy);
+      color: white;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .95rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .section h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); }
+    .section h2 .emoji { margin-right: 8px; }
+    .section-desc { font-size: .9rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--soft);
+      margin-bottom: 12px;
+    }
+
+    /* ── STEPS ── */
+    .steps { counter-reset: step; }
+    .step {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+    .step-num {
+      counter-increment: step;
+      min-width: 28px; height: 28px;
+      background: var(--teal);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-num::before { content: counter(step); }
+    .step-body { font-size: .93rem; padding-top: 4px; }
+    .step-body strong { color: var(--text); }
+
+    /* ── TIP / WARN / NOTE ── */
+    .tip, .warn, .note {
+      display: flex;
+      gap: 12px;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: .88rem;
+    }
+    .tip  { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a5f; }
+    .tip-icon, .warn-icon, .note-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── ROLES TABLE ── */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 6px;
+    }
+    .role-card {
+      border-radius: 10px;
+      padding: 18px 16px;
+      text-align: center;
+    }
+    .role-card.admin   { background: #fef3c7; border: 1px solid #fbbf24; }
+    .role-card.oper    { background: #dbeafe; border: 1px solid #93c5fd; }
+    .role-card.viewer  { background: #f1f5f9; border: 1px solid #cbd5e1; }
+    .role-icon { font-size: 2rem; margin-bottom: 8px; }
+    .role-name { font-weight: 700; font-size: .95rem; margin-bottom: 6px; }
+    .role-card.admin  .role-name { color: #92400e; }
+    .role-card.oper   .role-name { color: #1e40af; }
+    .role-card.viewer .role-name { color: #334155; }
+    .role-desc { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+
+    /* ── FEATURE TABLE ── */
+    table.feat { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    table.feat th {
+      background: var(--navy);
+      color: white;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: .8rem;
+    }
+    table.feat th:first-child { border-radius: 8px 0 0 0; }
+    table.feat th:last-child  { border-radius: 0 8px 0 0; }
+    table.feat td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.feat tr:last-child td { border-bottom: none; }
+    table.feat tr:hover td { background: var(--bg); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .badge.admin  { background: #fef3c7; color: #92400e; }
+    .badge.oper   { background: #dbeafe; color: #1e40af; }
+    .badge.viewer { background: #f1f5f9; color: #475569; }
+    .badge.yes    { background: #dcfce7; color: #166534; }
+    .badge.no     { background: #fee2e2; color: #991b1b; }
+    .badge.read   { background: #eff6ff; color: #1e40af; }
+
+    /* ── DIVIDER ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+    /* ── FOOTER ── */
+    .footer {
+      background: var(--navy);
+      color: rgba(255,255,255,.6);
+      text-align: center;
+      padding: 24px 40px;
+      font-size: .8rem;
+    }
+    .footer strong { color: white; }
+
+    /* ── SCREEN MOCK ── */
+    .screen-mock {
+      background: var(--navy);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 16px 0;
+      font-size: .8rem;
+      color: rgba(255,255,255,.85);
+      font-family: monospace;
+    }
+    .mock-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 4px 0;
+      cursor: default;
+    }
+    .mock-item.active { background: rgba(15,155,148,.3); color: white; font-weight: 600; }
+    .mock-item:not(.active):hover { background: rgba(255,255,255,.05); }
+    .mock-sep { font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.4); padding: 10px 12px 2px; }
+
+    @media (max-width: 640px) {
+      .hero { padding: 32px 20px 28px; }
+      .hero h1 { font-size: 1.5rem; }
+      .download-bar { padding: 12px 20px; }
+      .page { padding: 28px 16px 60px; }
+      .roles-grid { grid-template-columns: 1fr; }
+      table.feat { font-size: .8rem; }
+    }
+
+    @media print {
+      .download-bar { display: none; }
+      .hero { background: var(--navy) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-logo">
+    <img src="assets/logo.svg" alt="Grupo DB" onerror="this.style.display='none'">
+    <span class="hero-logo-text">Grupo DB — Medicina Diagnóstica</span>
+  </div>
+  <div class="hero-badge">Guia do Usuário</div>
+  <h1>Speed Teste DBSync</h1>
+  <p class="hero-sub">Tudo que você precisa saber para usar a plataforma de monitoramento de performance dos serviços digitais do Grupo DB.</p>
+</div>
+
+<!-- DOWNLOAD BAR -->
+<div class="download-bar">
+  <span class="download-bar-info"><strong>Speed Teste DBSync</strong> — Guia do Usuário &nbsp;·&nbsp; Versão 3.0</span>
+  <button class="btn-download" onclick="window.print()">
+    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    Baixar / Imprimir PDF
+  </button>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<div class="page">
+
+  <!-- ÍNDICE -->
+  <div class="toc">
+    <div class="toc-title">Índice do Guia</div>
+    <ol>
+      <li><a href="#s1">O que é o Speed Teste DBSync?</a></li>
+      <li><a href="#s2">Níveis de acesso</a></li>
+      <li><a href="#s3">Como entrar no sistema</a></li>
+      <li><a href="#s4">Dashboard — Visão Geral</a></li>
+      <li><a href="#s5">Testes — Criando e executando testes</a></li>
+      <li><a href="#s6">Grupos — Organizando testes</a></li>
+      <li><a href="#s7">Agendamentos — Testes automáticos</a></li>
+      <li><a href="#s8">Resultados — Histórico de execuções</a></li>
+      <li><a href="#s9">Relatórios — Exportando dados</a></li>
+      <li><a href="#s10">Usuários — Gerenciando pessoas (Admin)</a></li>
+      <li><a href="#s11">Configurações e sessão</a></li>
+      <li><a href="#s12">Perguntas frequentes</a></li>
+    </ol>
+  </div>
+
+  <!-- ── 1. O QUE É ── -->
+  <span class="section-anchor" id="s1"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div>
+        <h2><span class="emoji">💡</span>O que é o Speed Teste DBSync?</h2>
+        <p class="section-desc">Entenda para que serve a ferramenta</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>O <strong>Speed Teste DBSync</strong> é uma plataforma interna do Grupo DB que permite monitorar a velocidade e disponibilidade dos serviços de integração utilizados nos sistemas de medicina diagnóstica.</p>
+      <br>
+      <p>Com ela você pode:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Executar testes manuais</strong> — enviar requisições para um serviço e medir o tempo de resposta na hora.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Agendar testes automáticos</strong> — programar a ferramenta para testar serviços em horários definidos, sem precisar estar presente.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Visualizar o histórico</strong> — consultar todos os testes realizados, com tempo de resposta, status e eventuais erros.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Exportar relatórios</strong> — abrir o relatório HTML com gráficos interativos ou baixar em Excel / CSV para análises ou reuniões.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-icon">ℹ️</span>
+      <span>Os dados ficam salvos no próprio navegador (localStorage). Por isso, use sempre o mesmo computador e navegador para manter o histórico completo.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 2. NÍVEIS DE ACESSO ── -->
+  <span class="section-anchor" id="s2"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div>
+        <h2><span class="emoji">🔐</span>Níveis de Acesso</h2>
+        <p class="section-desc">O que cada perfil pode fazer no sistema</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="roles-grid">
+        <div class="role-card admin">
+          <div class="role-icon">👑</div>
+          <div class="role-name">Administrador</div>
+          <div class="role-desc">Acesso total: cria usuários, configura testes, agendamentos e visualiza tudo.</div>
+        </div>
+        <div class="role-card oper">
+          <div class="role-icon">🛠️</div>
+          <div class="role-name">Operador</div>
+          <div class="role-desc">Cria e executa testes, vê resultados. Não gerencia usuários nem configurações.</div>
+        </div>
+        <div class="role-card viewer">
+          <div class="role-icon">👁️</div>
+          <div class="role-name">Visualizador</div>
+          <div class="role-desc">Apenas consulta o Dashboard e o histórico de resultados. Não executa testes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tabela de permissões por área</div>
+      <table class="feat">
+        <thead>
+          <tr>
+            <th>Área</th>
+            <th>Administrador</th>
+            <th>Operador</th>
+            <th>Visualizador</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dashboard</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+          </tr>
+          <tr>
+            <td>Testes (criar / executar)</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge no">Não</span></td>
+          </tr>
+          <tr>
+            <td>Grupos</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge no">Não</span></td>
+          </tr>
+          <tr>
+            <td>Agendamentos</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge no">Não</span></td>
+          </tr>
+          <tr>
+            <td>Resultados</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge read">Somente leitura</span></td>
+          </tr>
+          <tr>
+            <td>Relatórios / Exportação</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge no">Não</span></td>
+          </tr>
+          <tr>
+            <td>Gerenciar Usuários</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge no">Não</span></td>
+            <td><span class="badge no">Não</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 3. LOGIN ── -->
+  <span class="section-anchor" id="s3"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div>
+        <h2><span class="emoji">🚪</span>Como entrar no sistema</h2>
+        <p class="section-desc">Primeiro acesso e login</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Primeiro acesso (sistema novo)</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Ao abrir o sistema pela primeira vez, será exibida uma tela de <strong>Criação do Administrador</strong>. Isso acontece apenas uma vez.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Preencha o nome completo, o nome de usuário, o e-mail e uma senha. Guarde essas informações em local seguro.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Criar Administrador</strong>. O sistema entrará automaticamente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Login normal</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Abra o sistema no navegador. A tela de login será exibida.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Digite seu <strong>usuário</strong> e <strong>senha</strong> nos campos indicados.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Entrar</strong>. Se as credenciais estiverem corretas, o Dashboard será aberto.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn">
+      <span class="warn-icon">⚠️</span>
+      <span>A sessão expira automaticamente após <strong>30 minutos de inatividade</strong>. Você receberá um aviso 5 minutos antes e será redirecionado para o login. Qualquer interação com o sistema (clique, digitação, rolagem) renova o tempo automaticamente.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 4. DASHBOARD ── -->
+  <span class="section-anchor" id="s4"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div>
+        <h2><span class="emoji">🏠</span>Dashboard — Visão Geral</h2>
+        <p class="section-desc">A primeira tela que você vê ao entrar</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>O Dashboard exibe um resumo de tudo que está acontecendo no sistema:</p>
+      <br>
+      <table class="feat">
+        <thead>
+          <tr><th>Indicador</th><th>O que significa</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Testes</strong></td>
+            <td>Quantos endpoints/serviços estão cadastrados para teste.</td>
+          </tr>
+          <tr>
+            <td><strong>Grupos</strong></td>
+            <td>Quantos grupos de testes existem.</td>
+          </tr>
+          <tr>
+            <td><strong>Agendamentos</strong></td>
+            <td>Quantos testes automáticos estão configurados.</td>
+          </tr>
+          <tr>
+            <td><strong>Resultados</strong></td>
+            <td>Total de execuções registradas no histórico.</td>
+          </tr>
+        </tbody>
+      </table>
+      <br>
+      <p>Abaixo dos indicadores há <strong>gráficos de desempenho</strong>:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Aba "Manuais"</strong> — mostra o tempo de resposta de cada requisição da última execução manual e a distribuição de tempos em milissegundos.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Aba "Agendados"</strong> — mostra a performance dos agendamentos com filtros de 1h, 24h, 7 dias e 30 dias. Cada agendamento aparece como uma linha contínua no gráfico. Cada ponto representa a <em>média</em> dos tempos de resposta do bucket de tempo (minuto para 1h/24h; hora para 7d/30d), tornando a escala vertical comparável entre os filtros. A linha tracejada indica a mediana histórica de cada agendamento. Inclui a taxa de sucesso por endpoint.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <span class="tip-icon">✅</span>
+      <span>Clique no botão <strong>Atualizar</strong> para recarregar os dados mais recentes sem sair da tela.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 5. TESTES ── -->
+  <span class="section-anchor" id="s5"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div>
+        <h2><span class="emoji">🧾</span>Testes — Criando e executando</h2>
+        <p class="section-desc">Cadastre serviços e dispare testes de performance</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">O que é um "Teste"?</div>
+      <p>Um <strong>Teste</strong> representa um serviço digital (endpoint) que você quer monitorar. Cada teste tem um endereço (URL), uma operação específica e um modelo de mensagem para enviar.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Criar um novo Teste</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Testes</strong> na barra lateral esquerda.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique no botão <strong>Novo Teste</strong> no canto superior direito.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Preencha o formulário:
+            <br><br>
+            <table class="feat">
+              <thead><tr><th>Campo</th><th>O que preencher</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Nome</strong></td><td>Nome amigável para identificar o serviço (ex: "DBSYNC Produção")</td></tr>
+                <tr><td><strong>URL</strong></td><td>Endereço completo do serviço (fornecido pela equipe de TI)</td></tr>
+                <tr><td><strong>SOAPAction</strong></td><td>Identificador da operação (fornecido pela equipe de TI)</td></tr>
+                <tr><td><strong>Grupo</strong></td><td>Opcional — associe a um grupo existente</td></tr>
+                <tr><td><strong>Cor</strong></td><td>Cor para identificar visualmente este teste nos gráficos</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Salvar</strong>. O teste aparece na lista de cards.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Executar um teste manualmente</div>
+      <p>Na seção <strong>Painel de Execução</strong> (abaixo da lista de testes), você pode disparar uma bateria de requisições:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Selecione o <strong>Teste</strong> que deseja executar no menu suspenso.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Defina o número de <strong>Requisições</strong> (quantas vezes o serviço será chamado).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Defina a <strong>Concorrência</strong> — quantas requisições simultâneas serão enviadas (1 a 20). Comece com 1 se não tiver certeza.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Defina o <strong>Timeout</strong> em segundos (padrão: 120). Se o serviço não responder dentro desse tempo, a requisição é registrada como falha.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Iniciar Teste</strong>. A barra de progresso mostrará o andamento em tempo real.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Se precisar parar antes de terminar, clique em <strong>Abortar</strong>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn">
+      <span class="warn-icon">⚠️</span>
+      <span>Cards de teste com o ícone <strong>⚠ vermelho</strong> indicam que o campo SOAPAction não foi preenchido. Clique em <strong>Editar</strong> para corrigi-lo antes de testar.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 6. GRUPOS ── -->
+  <span class="section-anchor" id="s6"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <div>
+        <h2><span class="emoji">🗂️</span>Grupos — Organizando testes</h2>
+        <p class="section-desc">Agrupe testes relacionados para facilitar agendamentos</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>Grupos permitem reunir vários testes sob um mesmo nome. Isso é útil para:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Organizar testes por <strong>ambiente</strong> (Produção, Homologação, Desenvolvimento).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Criar <strong>agendamentos</strong> que disparam automaticamente todos os testes de um grupo de uma vez.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Criar um Grupo</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Grupos</strong> na barra lateral.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Novo Grupo</strong>, defina um nome e salve.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Ao criar ou editar um teste (aba Testes), selecione o grupo desejado no campo <strong>Grupo</strong>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 7. AGENDAMENTOS ── -->
+  <span class="section-anchor" id="s7"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <div>
+        <h2><span class="emoji">⏰</span>Agendamentos — Testes automáticos</h2>
+        <p class="section-desc">Configure o sistema para testar sozinho, sem intervenção humana</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>Um <strong>Agendamento</strong> dispara testes automaticamente em intervalos definidos, dentro de uma janela de horário e nos dias da semana que você escolher.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Criar um Agendamento</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Agendamentos</strong> na barra lateral.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Novo Agendamento</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Preencha o formulário:
+            <br><br>
+            <table class="feat">
+              <thead><tr><th>Campo</th><th>O que preencher</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Nome</strong></td><td>Nome para identificar o agendamento (ex: "Teste Diário PRD")</td></tr>
+                <tr><td><strong>Tipo</strong></td><td>"Recorrente" (sem data fim) ou "Por período" (define início e fim)</td></tr>
+                <tr><td><strong>Dias da semana</strong></td><td>Marque os dias em que o agendamento deve rodar</td></tr>
+                <tr><td><strong>Horário de início / fim</strong></td><td>Janela de horário do dia em que os testes podem rodar</td></tr>
+                <tr><td><strong>Frequência</strong></td><td>A cada quantos minutos um novo lote de testes deve ser disparado</td></tr>
+                <tr><td><strong>Testes / Grupo</strong></td><td>Selecione quais testes ou grupo serão executados</td></tr>
+                <tr><td><strong>Requisições</strong></td><td>Quantas requisições por teste a cada execução</td></tr>
+                <tr><td><strong>Concorrência</strong></td><td>Requisições simultâneas por execução</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Salvar</strong>. O agendamento ficará ativo e será executado automaticamente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn">
+      <span class="warn-icon">⚠️</span>
+      <span>Os agendamentos só funcionam enquanto o <strong>navegador estiver aberto</strong> com a aplicação carregada. Se fechar o navegador, os testes automáticos são pausados.</span>
+    </div>
+
+    <div class="tip">
+      <span class="tip-icon">✅</span>
+      <span>Você pode <strong>pausar</strong> ou <strong>reativar</strong> um agendamento a qualquer momento usando o botão na linha do agendamento na lista.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 8. RESULTADOS ── -->
+  <span class="section-anchor" id="s8"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <div>
+        <h2><span class="emoji">📊</span>Resultados — Histórico de execuções</h2>
+        <p class="section-desc">Consulte todos os testes já realizados</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>A aba <strong>Resultados</strong> exibe o histórico completo de todas as execuções. Para cada resultado, você verá:</p>
+      <br>
+      <table class="feat">
+        <thead><tr><th>Coluna</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Teste</strong></td><td>Nome do serviço que foi testado.</td></tr>
+          <tr><td><strong>Status</strong></td><td><span style="color:var(--success);font-weight:600;">Sucesso</span> ou <span style="color:var(--danger);font-weight:600;">Falha</span> — indica se o serviço respondeu corretamente.</td></tr>
+          <tr><td><strong>Código HTTP</strong></td><td>Código de resposta do servidor (200 = OK, 500 = erro no servidor, etc.).</td></tr>
+          <tr><td><strong>Duração</strong></td><td>Tempo que o serviço levou para responder, em milissegundos (ms).</td></tr>
+          <tr><td><strong>Origem</strong></td><td>"Manual" (você disparou), "Agendado" (automático) ou "Cenário".</td></tr>
+          <tr><td><strong>Data/Hora</strong></td><td>Quando a requisição foi executada.</td></tr>
+          <tr><td><strong>Detalhe</strong></td><td>Mensagem de erro, se houver falha.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tip">
+      <span class="tip-icon">✅</span>
+      <span>O sistema mantém até <strong>5.000 resultados</strong>. Os mais antigos são removidos automaticamente quando esse limite é atingido.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 9. RELATÓRIOS ── -->
+  <span class="section-anchor" id="s9"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <div>
+        <h2><span class="emoji">📄</span>Relatórios — Exportando dados</h2>
+        <p class="section-desc">Baixe os resultados para análise ou apresentação</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>Na aba <strong>Relatórios</strong> você pode exportar os resultados em três formatos:</p>
+      <br>
+      <table class="feat">
+        <thead><tr><th>Formato</th><th>Ideal para</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Excel (.xlsx)</strong></td>
+            <td>Análises detalhadas, filtros e gráficos no Microsoft Excel.</td>
+          </tr>
+          <tr>
+            <td><strong>HTML</strong></td>
+            <td>Relatório visual completo com 4 gráficos interativos, tabela por teste e resultados detalhados com seções recolhíveis. Abre em nova aba — use <strong>Imprimir / Salvar PDF</strong> para gerar PDF ou <strong>Salvar como HTML</strong> para baixar o arquivo e manter os recursos interativos.</td>
+          </tr>
+          <tr>
+            <td><strong>CSV</strong></td>
+            <td>Integração com Power BI, Google Sheets ou outros sistemas de BI.</td>
+          </tr>
+        </tbody>
+      </table>
+      <br>
+      <p><strong>O relatório HTML inclui:</strong></p>
+      <ul style="margin:10px 0 0 20px;line-height:1.9">
+        <li><strong>Gráfico A</strong> — Linha de tempo de resposta por requisição com data e hora exata em cada ponto</li>
+        <li><strong>Gráfico B</strong> — Histograma de distribuição de tempo de resposta</li>
+        <li><strong>Gráfico C</strong> — Tempo médio por teste (barras)</li>
+        <li><strong>Gráfico D</strong> — Taxa de sucesso por teste em barras (verde ≥99%, amarelo ≥80%, vermelho &lt;80%)</li>
+        <li><strong>Tabela Por Teste</strong> — resumo agrupado pelo nome do teste</li>
+        <li><strong>Resultados Detalhados</strong> — todos os envios com nome do teste, status e data/hora</li>
+      </ul>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Relatórios</strong> na barra lateral.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Selecione o filtro desejado: <em>Todos os resultados</em>, <em>Por Teste</em> ou <em>Por Grupo</em>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Exportar HTML</strong> — o relatório abrirá em uma nova aba com os gráficos renderizados.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Para salvar como PDF, clique no botão <strong>Imprimir / Salvar PDF</strong> no canto superior direito do relatório e escolha "Salvar como PDF" na caixa de impressão do navegador.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Para salvar o relatório como arquivo HTML (mantendo gráficos interativos e seções recolhíveis), clique em <strong>💾 Salvar como HTML</strong>. O arquivo baixado pode ser aberto em qualquer navegador sem precisar de conexão com o sistema.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 10. USUÁRIOS ── -->
+  <span class="section-anchor" id="s10"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <div>
+        <h2><span class="emoji">👥</span>Usuários — Gerenciando pessoas</h2>
+        <p class="section-desc">Exclusivo para Administradores</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Criar um novo usuário</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Usuários</strong> na barra lateral (visível apenas para Administradores).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Novo Usuário</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Preencha o nome, nome de usuário, e-mail, senha e selecione o <strong>nível de acesso</strong> (Admin, Operador ou Visualizador).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Salvar</strong>. O usuário poderá fazer login imediatamente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Desativar ou remover um usuário</div>
+      <p>Na lista de usuários, utilize os botões de ação em cada linha para <strong>desativar</strong> (impede login sem excluir) ou <strong>excluir</strong> permanentemente o usuário.</p>
+    </div>
+
+    <div class="note">
+      <span class="note-icon">ℹ️</span>
+      <span>É impossível excluir o último Administrador do sistema. Sempre deve existir ao menos um Admin ativo.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 11. CONFIGURAÇÕES ── -->
+  <span class="section-anchor" id="s11"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">11</div>
+      <div>
+        <h2><span class="emoji">⚙️</span>Configurações e Sessão</h2>
+        <p class="section-desc">Informações sobre sua conta e sessão atual</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>A aba <strong>Configurações</strong> exibe informações da sua sessão atual:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Seu <strong>nome de usuário</strong> e <strong>nível de acesso</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">O <strong>tempo restante</strong> de sessão (a sessão expira após 30 minutos de inatividade; qualquer interação com o sistema renova o tempo).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Botão <strong>Sair</strong> — encerra sua sessão com segurança.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <span class="tip-icon">✅</span>
+      <span>O botão <strong>Sair</strong> também fica disponível no rodapé da barra lateral esquerda, para acesso rápido a qualquer momento.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 12. FAQ ── -->
+  <span class="section-anchor" id="s12"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">12</div>
+      <div>
+        <h2><span class="emoji">❓</span>Perguntas Frequentes</h2>
+        <p class="section-desc">Dúvidas comuns e como resolvê-las</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>O teste ficou como "Falha" — o que significa?</strong>
+      <p style="margin-top:8px;color:var(--muted);">O serviço não respondeu corretamente. Pode ser que o serviço esteja fora do ar, com lentidão extrema (timeout) ou com um erro interno. Verifique a coluna "Detalhe" em Resultados para ver a mensagem de erro.</p>
+    </div>
+
+    <div class="card">
+      <strong>Meu histórico sumiu — o que aconteceu?</strong>
+      <p style="margin-top:8px;color:var(--muted);">Os dados ficam salvos no navegador. Se você limpou os dados do navegador (cache, cookies, localStorage) ou usou outro computador/navegador, o histórico local pode não estar disponível neste novo contexto.</p>
+    </div>
+
+    <div class="card">
+      <strong>Os agendamentos pararam de rodar — por quê?</strong>
+      <p style="margin-top:8px;color:var(--muted);">Os agendamentos funcionam apenas enquanto a aplicação está aberta no navegador. Se a aba foi fechada ou o computador desligado, os testes automáticos ficam em pausa até a próxima vez que o sistema for aberto. Enquanto houver agendamentos ativos, a sessão <strong>não expira</strong> por inatividade — você pode deixar a aba aberta em segundo plano sem se preocupar com o logout automático.</p>
+    </div>
+
+    <div class="card">
+      <strong>Não consigo ver a aba "Usuários" — por quê?</strong>
+      <p style="margin-top:8px;color:var(--muted);">A aba Usuários é visível e acessível somente para contas com nível <strong>Administrador</strong>. Verifique com o seu administrador se precisa dessa funcionalidade.</p>
+    </div>
+
+    <div class="card">
+      <strong>O que é "Concorrência"?</strong>
+      <p style="margin-top:8px;color:var(--muted);">É o número de requisições enviadas ao mesmo tempo para o serviço. Com concorrência 1, as requisições vão uma por vez. Com concorrência 5, cinco requisições são enviadas simultaneamente. Isso simula múltiplos usuários acessando o serviço ao mesmo tempo.</p>
+    </div>
+
+    <div class="card">
+      <strong>O que é "Timeout"?</strong>
+      <p style="margin-top:8px;color:var(--muted);">É o tempo máximo (em segundos) que o sistema aguarda uma resposta do serviço. Se o serviço demorar mais do que esse tempo, a requisição é registrada como falha com motivo "timeout". O padrão é 120 segundos (2 minutos).</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <strong>Speed Teste DBSync v3.0</strong> &nbsp;·&nbsp; Grupo DB — Medicina Diagnóstica Ltda &nbsp;·&nbsp; Uso interno
+</div>
+
+</body>
+</html>

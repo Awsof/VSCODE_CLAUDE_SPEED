@@ -1,0 +1,43 @@
+.wide-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.wide-panel > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .wide-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  height: 340px;
+  overflow: hidden;
+}
+
+.chart-title {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.chart-canvas {
+  flex: 1;
+  position: relative;
+}
+
+.chart-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
