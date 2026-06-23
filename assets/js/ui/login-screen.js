@@ -262,16 +262,16 @@ const LoginScreenManager = (() => {
         const serverLogin = await _tryServerLogin(username, password);
         console.log('[LoginScreenManager] Server login response:', serverLogin);
 
-        // Usar resultado da API somente se confirmou ok: true (env vars ou admin/admin)
+        // Usar resultado da API somente se confirmou ok: true (env vars ou Turso)
         if (serverLogin?.ok === true) {
-          console.log('[LoginScreenManager] Login via API bem-sucedido');
-          const envUser = {
+          console.log('[LoginScreenManager] Login via API bem-sucedido, mode:', serverLogin.mode);
+          const apiUser = serverLogin.user || {
             id: 'api-user-' + username,
-            nome: 'Usuário',
+            nome: username,
             usuario: username.toLowerCase(),
             nivel: 'admin'
           };
-          SessionManager.login(envUser);
+          SessionManager.login(apiUser, serverLogin.token || null);
           setTimeout(() => {
             window.location.href = window.location.pathname;
           }, 500);

@@ -20,7 +20,8 @@ export default async function handler(req, res) {
 
   // Modo legado: env vars simples (LOGIN_USUARIO / LOGIN_SENHA)
   if (process.env.LOGIN_USUARIO && process.env.LOGIN_SENHA) {
-    const ok = usuario === process.env.LOGIN_USUARIO && senha === process.env.LOGIN_SENHA;
+    const ok = usuario.trim().toLowerCase() === process.env.LOGIN_USUARIO.trim().toLowerCase()
+            && senha === process.env.LOGIN_SENHA.trim();
     if (ok) {
       const envUser = { id: 'env-' + usuario, nome: usuario, usuario, nivel: 'admin', email: '' };
       const token = signJWT({ userId: envUser.id, usuario, nivel: 'admin' });
