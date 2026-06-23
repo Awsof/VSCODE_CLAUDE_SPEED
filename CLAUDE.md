@@ -17,8 +17,10 @@ npx serve .
 
 **Deploy to Vercel:**
 ```powershell
-vercel deploy
+vercel deploy --prod
 ```
+
+The project is linked via `.vercel/project.json` to `prj_S3QnovpAMPc6AhG2QwG8cnfPrN42` (team `team_fXvudOFwpx9qWUISlm1cwaao`). The production alias is `grupodb-speed.vercel.app`. GitHub pushes to `main` also trigger auto-deploy. Required env vars in Vercel: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`.
 
 No lint, test, or transpilation commands are configured (`package.json` has no scripts).
 
@@ -41,10 +43,12 @@ assets/js/
 
 **Data flow:**
 ```
-Browser SPA → localStorage (StorageEngine) → /api/proxy.js (Vercel serverless) → External SOAP/WCF endpoints
+Browser SPA → localStorage (StorageEngine)  ← all entities except results
+             → IndexedDB (ResultsManager)   ← execution results (up to 10,000)
+             → /api/proxy.js (Vercel)       → External SOAP/WCF endpoints
 ```
 
-All SOAP requests go through `/api/proxy.js` to bypass CORS. The proxy accepts `{targetUrl, headers, payload, timeoutMs}` and returns `{success, statusCode, duration, errorDetail, responseBody}`.
+All SOAP requests go through `/api/proxy.js` to bypass CORS. The proxy accepts `{targetUrl, headers, payload, timeoutMs}` and returns `{success, statusCode, duration, errorDetail, responseBody}`. API functions use ESM (`export default async function handler(req, res)`).
 
 ### Window Globals Reference
 
@@ -57,7 +61,7 @@ Each module registers itself on `window`. These are the actual global names:
 | `ProfilesManager` | `storage/profiles.js` | `create, list, getById, update, delete, count` |
 | `GroupsManager` | `storage/groups.js` | `create, list, getById, update, delete` |
 | `ScenariosManager` | `storage/scenarios.js` | `create, list, getById, update, delete` |
-| `ResultsManager` | `storage/results.js` | `save, list, getById, getStats, cleanup` |
+| `ResultsManager` | `storage/results.js` | `init (async), add, addBatch, list, getById, getStats, clear (async), count` |
 | `SchedulerManager` | `storage/schedules.js` | `create, list, getById, update, delete, getDue` |
 | `MethodsManager` | `storage/methods.js` | `list, getById, create, update, delete_, count` |
 | `AuditLogManager` | `storage/audit-log.js` | `log, list, getByUser` |
@@ -74,13 +78,13 @@ Each module registers itself on `window`. These are the actual global names:
 | `RunnerEngine` | `engine/runner.js` | `run, executeRequest, on` |
 | `ScenarioExecutor` | `features/executor.js` | `execute, cancel, on` |
 | `ScheduleRunner` | `features/scheduler.js` | `start, stop, on` |
-| `ReportsManager` | `reports/reports.js` | `exportExcel, exportCSV, exportHTML(options), getSummary, getRows` |
+| `ReportsManager` | `reports/reports.js` | `getSummary(filters), getRows(filters), exportExcel(filters), exportCSV(filters), exportHTML(options), importCSV` |
 
 ### Storage Layer
 
 All localStorage keys use the `stp_v3_` prefix (prevents conflicts with legacy v2 data). `StorageEngine` is the generic abstraction; domain managers wrap it with entity-specific validation.
 
-Maximum 5,000 execution results are stored; auto-cleanup removes oldest records on each `save()` call beyond the limit.
+**Results are stored in IndexedDB** (`stp_results_v1` database, object store `results`, keyPath `id`, index `by_seq`), not in localStorage. `ResultsManager` uses an **in-memory cache** pattern: `init()` (async, called once at startup) opens IDB, migrates any legacy `stp_v3_results` from localStorage, and loads all records into `_cache`. All reads (`list()`, `getById()`, etc.) operate synchronously on `_cache`; writes (`add()`) update `_cache` immediately and persist to IDB fire-and-forget. Maximum **10,000** results; oldest 10% are pruned when the limit is reached.
 
 **`MethodsManager` exception:** `storage/methods.js` is loaded in `index.html` and stores SOAP method definitions, but it is intentionally absent from `app.js`'s `_validateModules` list — a missing `methods.js` will not abort bootstrap. Its SOAP method schema includes `soapAction`, `payloadTemplate`, and `xmlTag` fields used by the execution engine.
 
@@ -124,6 +128,8 @@ The schedule charts section (tab "Agendados") has four filter buttons (1h / 24h 
 **X-axis ordering:** datasets use **arrays aligned to a shared `allLabels`** — not `{x,y}` objects with `parsing`. This prevents Chart.js from inserting labels out of order when two schedules run at different timestamps.
 
 **Bucket aggregation (average):** each time bucket shows the **average** duration of all results in that bucket, not just the last one. This ensures the Y-axis scale is comparable across Hora/Dia/Semana/Mês filters.
+
+**Reports date filter:** `getSummary(filters)`, `getRows(filters)`, `exportExcel(filters)`, `exportCSV(filters)`, and `exportHTML(options)` all accept `{ de: 'YYYY-MM-DD', ate: 'YYYY-MM-DD' }`. The renderer reads these from `#report-filter-de` / `#report-filter-ate` inputs via `_readReportFilters()` and passes them to both the on-screen tables and all export functions. `importCSV` accepts exported CSV files and saves results with `origem: 'imported'`, restoring original `executadoEm` timestamps.
 
 **`spanGaps: true`** on main execution line datasets — connects the line across null entries caused by interleaved timestamps from other schedules. The dashed median dataset keeps `spanGaps: false`.
 
@@ -169,7 +175,7 @@ Typography: UI uses **Inter** (labels/titles); technical data (URLs, response ti
 ## Key Conventions
 
 - **RBAC checks are mandatory** before any destructive UI action — call `RBACManager.canCurrent(resource)` and hide/disable controls for unauthorized roles.
-- **StorageEngine is the only persistence layer** — there is no backend database; all state lives in `localStorage`.
+- **Two persistence layers:** `StorageEngine` (localStorage, `stp_v3_` prefix) for all entities except results; `ResultsManager` (IndexedDB, `stp_results_v1`) for execution results. Do not write results to localStorage.
 - **Proxy required for all SOAP calls** — direct browser-to-endpoint requests will fail due to CORS; always route through `/api/proxy.js`.
 - **Module globals** — when adding a new module, register it on `window` and add it to the validation list in `app.js`.
 - **Result schema** must include `origem` field (`"manual"`, `"schedule"`, or `"scenario"`) and `executadoPor` (user UUID). This field drives UI filtering.
@@ -194,12 +200,28 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/ui/renderer.js` | v=15 |
+| `assets/js/app.js` | v=10 |
+| `assets/js/ui/renderer.js` | v=19 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=10 |
-| `assets/js/reports/reports.js` | v=18 |
+| `assets/js/storage/results.js` | v=11 |
+| `assets/js/reports/reports.js` | v=20 |
 | `assets/js/auth/session.js` | v=10 |
 | All other JS/CSS | v=9 |
+
+## Turso DB Migration (in progress)
+
+The project is migrating **Results + Users** to a centralized Turso (libSQL/SQLite) database so multiple machines/users can share data. The database is `libsql://speedtestdb-awsof.aws-us-east-1.turso.io`.
+
+**Architecture after migration:**
+- New API functions in `api/` handle CRUD for `users` and `results` tables in Turso
+- `UsersManager` loads from Turso on `init()`, operates in-memory, syncs writes back
+- `ResultsManager` syncs reads from Turso on startup; writes go to IndexedDB immediately + Turso async
+- Auth becomes server-side: `POST /api/auth/login` returns a JWT; `SessionManager` stores and passes it as `Authorization: Bearer <token>` on all API calls
+- Passwords remain SHA-256 hashed (client hashes, server stores and compares the hash)
+- Other entities (profiles, groups, schedules, scenarios) remain in localStorage for now
+
+**New files being added:** `api/db.js` (Turso client), `api/auth/login.js`, `api/results.js`, `api/users.js`, `api/users/[id].js`
 
 ## Documentation
 
