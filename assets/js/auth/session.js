@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SessionManager — Gestão de sessão e autenticação
  * Armazenamento: sessionStorage (volátil, apenas para sessão ativa)
  * 

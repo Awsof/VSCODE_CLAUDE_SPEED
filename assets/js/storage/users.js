@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UsersManager — Gestão de usuários com CRUD, hash SHA-256 e RBAC
  * Chave: users
  * 

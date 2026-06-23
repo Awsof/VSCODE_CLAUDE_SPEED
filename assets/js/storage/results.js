@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ResultsManager — Gestão do histórico de execuções e resultados
  * Backend: IndexedDB (stp_results_v1) com cache em memória para leituras síncronas.
  *

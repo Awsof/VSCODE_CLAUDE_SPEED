@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AppBootstrap — Inicialização da Aplicação Speed Teste DBSync
  * 
  * Fluxo:
