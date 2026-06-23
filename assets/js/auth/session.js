@@ -55,15 +55,7 @@ const SessionManager = (() => {
   const getCurrentUser = () => {
     const session = getSession();
     if (!session) return null;
-
-  
-  /**
-   * Obter JWT token da sessão atual (para chamadas autenticadas à API)
-   */
-  const getToken = () => {
-    return getSession()?.token || null;
-  };
-  return {
+    return {
       id: session.userId,
       usuario: session.usuario,
       nivel: session.nivel
@@ -222,15 +214,7 @@ const SessionManager = (() => {
   const getDebugInfo = () => {
     const session = getSession();
     if (!session) return { active: false };
-
-  
-  /**
-   * Obter JWT token da sessão atual (para chamadas autenticadas à API)
-   */
-  const getToken = () => {
-    return getSession()?.token || null;
-  };
-  return {
+    return {
       active: true,
       userId: session.userId,
       usuario: session.usuario,

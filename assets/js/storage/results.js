@@ -277,12 +277,7 @@ const ResultsManager = (() => {
       const token = typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
       if (!token) return;
 
-      const since = _cache.length > 0
-        ? _cache[_cache.length - 1].executadoEm
-        : null;
-
-      const url = '/api/results' + (since ? '?since=' + encodeURIComponent(since) : '');
-      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+      const res = await fetch('/api/results', { headers: { 'Authorization': 'Bearer ' + token } });
       if (!res.ok) return;
 
       const data = await res.json();
