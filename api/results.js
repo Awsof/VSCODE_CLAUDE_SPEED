@@ -44,7 +44,6 @@ export default async function handler(req, res) {
     db = getDb();
     await initSchema(db);
   } catch (err) {
-    console.error('[api/results] DB init error:', err.message);
     return res.status(503).json({ error: 'Banco de dados indisponível', detail: err.message });
   }
 
