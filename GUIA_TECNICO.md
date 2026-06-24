@@ -521,7 +521,7 @@ if (RBACManager.canCurrent('minha-funcionalidade:acao')) {
 
 ### Primeiro Acesso
 
-Se `UsersManager.list()` retornar array vazio (sistema novo), a tela de primeiro acesso é exibida automaticamente pelo `LoginScreenManager.show()`, solicitando criação do usuário administrador inicial.
+Novos usuários recebem uma **senha temporária** do administrador. Ao fazer login com essa senha, `LoginScreenManager.renderForcePasswordChange()` é exibida automaticamente antes de carregar o app — o usuário define sua nova senha via `POST /api/users` (`{ _selfChange: true }`), sem necessidade de JWT, e só então acessa o sistema normalmente.
 
 ---
 
