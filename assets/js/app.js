@@ -39,7 +39,12 @@ const AppBootstrap = (() => {
 
       if (isAuthed && currentUser) {
         console.log(`[AppBootstrap] Sessão ativa para: ${currentUser.usuario} (${currentUser.nivel})`);
-        _loadMainApp(currentUser);
+        if (currentUser.senhaTemporaria) {
+          console.log('[AppBootstrap] Senha temporária detectada — solicitando troca');
+          LoginScreenManager.renderForcePasswordChange(currentUser);
+        } else {
+          _loadMainApp(currentUser);
+        }
       } else {
         console.log('[AppBootstrap] Nenhuma sessão ativa');
         _showAuthScreen();
@@ -76,7 +81,24 @@ const AppBootstrap = (() => {
   const _loadMainApp = (currentUser) => {
     console.log('[AppBootstrap] Carregando interface principal...');
     Renderer.renderMainApp(currentUser);
+    // Sincronizar todas as entidades Turso em background (migra localStorage se Turso vazio)
     ResultsManager.syncFromTurso();
+    GroupsManager.syncFromTurso?.().catch(() => {});
+    MethodsManager.syncFromTurso?.().catch(() => {});
+    SchedulerManager.syncFromTurso?.().catch(() => {});
+    ProfilesManager.syncFromTurso?.().catch(() => {});
+
+    // Alertar se sessão não tem JWT (login via localStorage antigo — sem sync API)
+    if (!SessionManager.getToken?.()) {
+      setTimeout(() => {
+        if (typeof NotificationsManager !== 'undefined') {
+          NotificationsManager.warning(
+            'Sessão sem token de API. Faça logout e login novamente para sincronizar dados entre navegadores.',
+            12000
+          );
+        }
+      }, 2000);
+    }
     try {
       ScheduleRunner.start();
     } catch (error) {

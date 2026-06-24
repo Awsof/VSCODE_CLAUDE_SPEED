@@ -95,11 +95,11 @@ const Renderer = (() => {
             <button class="button small secondary"  id="dash-chart-filter-month" type="button">30d</button>
           </div>
           <div class="wide-panel">
-            <div class="chart-card fade-in-up" style="height:280px;">
+            <div class="chart-card fade-in-up">
               <div class="chart-title">C — Performance dos Agendamentos</div>
               <div class="chart-canvas"><canvas id="chart-dash-sa"></canvas></div>
             </div>
-            <div class="chart-card fade-in-up" style="height:280px;">
+            <div class="chart-card fade-in-up">
               <div class="chart-title">D — Taxa de Sucesso por Endpoint</div>
               <div class="chart-canvas"><canvas id="chart-dash-sb"></canvas></div>
             </div>
@@ -1415,9 +1415,23 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
+  const _userStatusBadge = (u) => {
+    if (u.ativo) {
+      const tmp = u.senhaTemporaria ? ' <span class="badge warning" style="font-size:10px;margin-left:4px;">senha temp.</span>' : '';
+      return `<span class="badge success">Ativo</span>${tmp}`;
+    }
+    if (u.inativacaoTipo === 'temporaria' && u.inativoAte) {
+      const ate = new Date(u.inativoAte).toLocaleDateString('pt-BR');
+      return `<span class="badge warning">Inativo até ${ate}</span>`;
+    }
+    return `<span class="badge danger">Inativo</span>`;
+  };
+
   const _renderUsers = () => {
     const users = UsersManager.list();
+    const canManage = RBACManager.canCurrent('users:manage');
     const canCreate = RBACManager.canCurrent('users:create');
+    const currentId = SessionManager.getCurrentUser()?.id;
     return `
       <section class="section-card fade-in-up">
         <div class="section-header">
@@ -1443,13 +1457,19 @@ const Renderer = (() => {
               ${users.length ? users.map(u => `
                 <tr>
                   <td>${u.nome}</td>
-                  <td>${u.usuario}</td>
+                  <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;">${u.usuario}</span></td>
                   <td>${RBACManager.getLevelDescription(u.nivel).split(' —')[0]}</td>
-                  <td>${u.ativo ? '<span class="badge success">Ativo</span>' : '<span class="badge danger">Inativo</span>'}</td>
+                  <td>${_userStatusBadge(u)}</td>
                   <td>${u.criadoEm ? new Date(u.criadoEm).toLocaleString('pt-BR') : '—'}</td>
-                  <td>
-                    <button class="button secondary small" type="button" data-action="toggle-user" data-user-id="${u.id}">${u.ativo ? 'Desativar' : 'Ativar'}</button>
-                    <button class="button danger small" type="button" data-action="delete-user" data-user-id="${u.id}">Excluir</button>
+                  <td style="display:flex;gap:4px;flex-wrap:wrap;">
+                    ${canManage && u.id !== currentId ? `
+                      ${u.ativo
+                        ? `<button class="button secondary small" type="button" data-action="deactivate-user" data-user-id="${u.id}">Desativar</button>`
+                        : `<button class="button secondary small" type="button" data-action="activate-user" data-user-id="${u.id}">Reativar</button>`
+                      }
+                      <button class="button secondary small" type="button" data-action="reset-password" data-user-id="${u.id}">Resetar Senha</button>
+                      <button class="button danger small" type="button" data-action="delete-user" data-user-id="${u.id}">Excluir</button>
+                    ` : '<span style="font-size:11px;color:#9CA3AF;">—</span>'}
                   </td>
                 </tr>
               `).join('') : '<tr><td colspan="6" class="empty-state">Nenhum usuário cadastrado.</td></tr>'}
@@ -1472,12 +1492,8 @@ const Renderer = (() => {
           <input id="user-email" type="email" placeholder="Ex: joao@empresa.com" />
         </label>
         <label class="field">
-          Usuário
+          Usuário (login)
           <input id="user-usuario" type="text" placeholder="Ex: joao.silva" />
-        </label>
-        <label class="field">
-          Senha
-          <input id="user-senha" type="password" placeholder="Mínimo 6 caracteres" />
         </label>
         <label class="field">
           Nível
@@ -1486,6 +1502,60 @@ const Renderer = (() => {
             <option value="visualizador">Visualizador</option>
             <option value="admin">Administrador</option>
           </select>
+        </label>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label style="font-size:12px;font-weight:600;color:#374151;">Senha Inicial Temporária</label>
+          <button type="button" id="btn-criar-gerar-senha" class="button secondary small">Gerar</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="user-senha" type="text" placeholder="Digite ou gere uma senha" style="flex:1;" />
+          <button type="button" id="btn-criar-copiar-senha" class="button secondary small" style="display:none;">Copiar</button>
+        </div>
+        <p style="font-size:11px;color:#6B7280;margin-top:6px;">O usuário deverá alterar esta senha no primeiro acesso. Anote e envie ao usuário.</p>
+      </div>
+    </form>
+  `;
+
+  const _buildResetPasswordModalBody = (userId) => `
+    <form id="reset-password-form" data-user-id="${userId}">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <button type="button" id="btn-gerar-senha" class="button secondary small">Gerar Senha Aleatória</button>
+        <span id="senha-gerada-display" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#0F9B94;font-weight:600;letter-spacing:0.08em;"></span>
+        <button type="button" id="btn-copiar-senha" style="display:none;background:none;border:none;cursor:pointer;color:#6B7280;font-size:11px;text-decoration:underline;">copiar</button>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          Nova senha
+          <input id="reset-senha" type="text" placeholder="Mínimo 6 caracteres" />
+        </label>
+        <label class="field">
+          Confirmar nova senha
+          <input id="reset-senha-confirm" type="text" placeholder="Confirme a nova senha" />
+        </label>
+      </div>
+      <label class="field" style="margin-top:12px;flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
+        <input id="reset-temporaria" type="checkbox" checked style="width:auto;" />
+        Marcar como temporária (usuário deve alterar no próximo acesso)
+      </label>
+    </form>
+  `;
+
+  const _buildDeactivateModalBody = (userId, nome) => `
+    <form id="deactivate-form" data-user-id="${userId}">
+      <p style="margin-bottom:12px;color:#374151;">Desativar usuário <strong>${nome}</strong>:</p>
+      <div class="form-grid">
+        <label class="field">
+          Tipo de inativação
+          <select id="deact-tipo">
+            <option value="temporaria">Temporária (até uma data)</option>
+            <option value="definitiva">Definitiva</option>
+          </select>
+        </label>
+        <label class="field" id="deact-ate-field">
+          Inativo até
+          <input id="deact-ate" type="date" />
         </label>
       </div>
     </form>
@@ -1498,6 +1568,27 @@ const Renderer = (() => {
       confirmText: 'Criar',
       cancelText: 'Cancelar'
     });
+
+    const btnGerar  = document.getElementById('btn-criar-gerar-senha');
+    const btnCopiar = document.getElementById('btn-criar-copiar-senha');
+    const inputSenha = document.getElementById('user-senha');
+    if (btnGerar && inputSenha) {
+      btnGerar.addEventListener('click', () => {
+        const nova = _gerarSenhaAleatoria();
+        inputSenha.value = nova;
+        if (btnCopiar) { btnCopiar.style.display = ''; }
+      });
+    }
+    if (btnCopiar && inputSenha) {
+      btnCopiar.addEventListener('click', () => {
+        const txt = inputSenha.value;
+        if (txt) navigator.clipboard?.writeText(txt).then(() => {
+          btnCopiar.textContent = 'Copiado!';
+          setTimeout(() => { btnCopiar.textContent = 'Copiar'; }, 1500);
+        });
+      });
+    }
+
     const confirmButton = document.getElementById('stp-modal-root-confirm');
     if (confirmButton) {
       confirmButton.onclick = (e) => { e.preventDefault(); _submitUserForm(); };
@@ -1505,26 +1596,134 @@ const Renderer = (() => {
   };
 
   const _submitUserForm = async () => {
-    const nome = document.getElementById('user-nome')?.value.trim();
-    const email = document.getElementById('user-email')?.value.trim();
+    const nome    = document.getElementById('user-nome')?.value.trim();
+    const email   = document.getElementById('user-email')?.value.trim();
     const usuario = document.getElementById('user-usuario')?.value.trim();
-    const senha = document.getElementById('user-senha')?.value;
-    const nivel = document.getElementById('user-nivel')?.value;
+    const senha   = document.getElementById('user-senha')?.value;
+    const nivel   = document.getElementById('user-nivel')?.value;
 
-    if (!nome || !email || !usuario || !senha || !nivel) {
+    if (!nome || !email || !usuario || !senha || !nivel)
       return NotificationsManager.danger('Preencha todos os campos obrigatórios');
-    }
-    if (senha.length < 6) {
+    if (senha.length < 6)
       return NotificationsManager.danger('Senha deve ter no mínimo 6 caracteres');
-    }
 
-    const created = await UsersManager.create({ nome, email, usuario, senha, nivel });
-    if (!created) {
+    const created = await UsersManager.create({ nome, email, usuario, senha, nivel, senhaTemporaria: true });
+    if (!created)
       return NotificationsManager.danger('Falha ao criar usuário. Verifique se usuário ou email já existem.');
-    }
 
     ModalManager.close();
-    NotificationsManager.success('Usuário criado com sucesso');
+    NotificationsManager.success('Usuário criado. O usuário deverá alterar a senha no primeiro acesso.');
+    _renderMainContent('users');
+    _attachEventListeners();
+  };
+
+  const _gerarSenhaAleatoria = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let s = '';
+    for (let i = 0; i < 10; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  };
+
+  const _showResetPasswordModal = (userId) => {
+    const user = UsersManager.getById(userId);
+    if (!user) return;
+    ModalManager.open({
+      title: `Resetar Senha — ${user.nome}`,
+      body: _buildResetPasswordModalBody(userId),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+
+    const btnGerar = document.getElementById('btn-gerar-senha');
+    const btnCopiar = document.getElementById('btn-copiar-senha');
+    const display = document.getElementById('senha-gerada-display');
+    const inputSenha = document.getElementById('reset-senha');
+    const inputConfirm = document.getElementById('reset-senha-confirm');
+
+    if (btnGerar) {
+      btnGerar.addEventListener('click', () => {
+        const nova = _gerarSenhaAleatoria();
+        if (display)    { display.textContent = nova; }
+        if (btnCopiar)  { btnCopiar.style.display = ''; }
+        if (inputSenha)    inputSenha.value = nova;
+        if (inputConfirm)  inputConfirm.value = nova;
+      });
+    }
+    if (btnCopiar) {
+      btnCopiar.addEventListener('click', () => {
+        const txt = display?.textContent || '';
+        if (txt) navigator.clipboard?.writeText(txt).then(() => {
+          btnCopiar.textContent = 'copiado!';
+          setTimeout(() => { btnCopiar.textContent = 'copiar'; }, 1500);
+        });
+      });
+    }
+
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitResetPassword(userId); };
+    }
+  };
+
+  const _submitResetPassword = async (userId) => {
+    const senha   = document.getElementById('reset-senha')?.value;
+    const confirm = document.getElementById('reset-senha-confirm')?.value;
+    const temp    = document.getElementById('reset-temporaria')?.checked !== false;
+
+    if (!senha) return NotificationsManager.danger('Informe a nova senha');
+    if (senha.length < 6) return NotificationsManager.danger('Senha deve ter no mínimo 6 caracteres');
+    if (senha !== confirm) return NotificationsManager.danger('As senhas não conferem');
+
+    const updated = await UsersManager.update(userId, { senha, senhaTemporaria: temp });
+    if (!updated) return NotificationsManager.danger('Falha ao resetar senha');
+
+    ModalManager.close();
+    NotificationsManager.success(temp
+      ? 'Senha resetada. O usuário deverá alterar no próximo acesso.'
+      : 'Senha alterada com sucesso.');
+    _renderMainContent('users');
+    _attachEventListeners();
+  };
+
+  const _showDeactivateModal = (userId) => {
+    const user = UsersManager.getById(userId);
+    if (!user) return;
+    ModalManager.open({
+      title: `Desativar Usuário`,
+      body: _buildDeactivateModalBody(userId, user.nome),
+      confirmText: 'Desativar',
+      cancelText: 'Cancelar'
+    });
+    const tipoSel = document.getElementById('deact-tipo');
+    const ateField = document.getElementById('deact-ate-field');
+    if (tipoSel && ateField) {
+      tipoSel.addEventListener('change', () => {
+        ateField.style.display = tipoSel.value === 'temporaria' ? '' : 'none';
+      });
+    }
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitDeactivate(userId); };
+    }
+  };
+
+  const _submitDeactivate = async (userId) => {
+    const tipo = document.getElementById('deact-tipo')?.value;
+    const ate  = document.getElementById('deact-ate')?.value;
+
+    if (tipo === 'temporaria' && !ate)
+      return NotificationsManager.danger('Informe a data de reativação automática');
+
+    const updated = await UsersManager.setActive(userId, false, {
+      inativacaoTipo: tipo,
+      inativoAte: tipo === 'temporaria' ? ate : null
+    });
+    if (!updated) return NotificationsManager.danger('Falha ao desativar usuário');
+
+    ModalManager.close();
+    NotificationsManager.success(tipo === 'temporaria'
+      ? `Usuário desativado temporariamente até ${new Date(ate).toLocaleDateString('pt-BR')}.`
+      : 'Usuário desativado definitivamente.');
     _renderMainContent('users');
     _attachEventListeners();
   };
@@ -2263,7 +2462,8 @@ const Renderer = (() => {
             x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 15 } }
           },
           responsive: true,
-          maintainAspectRatio: false
+          maintainAspectRatio: true,
+          aspectRatio: 1.6
         }
       });
 
@@ -2290,13 +2490,18 @@ const Renderer = (() => {
         state.chartRefs['dash-sb'] = new Chart(canvasSB.getContext('2d'), {
           type: 'doughnut',
           data: {
-            labels: uniqueEndpoints,
-            datasets: [{ data: successRates, backgroundColor: uniqueEndpoints.map((_, i) => `rgba(15,155,148,${0.7 - i * 0.08})`), borderColor: 'transparent' }]
+            labels: uniqueEndpoints.map((ep, i) => `${ep} (${successRates[i]}%)`),
+            datasets: [{ data: successRates, backgroundColor: uniqueEndpoints.map((_, i) => `rgba(15,155,148,${0.85 - i * 0.1})`), borderColor: 'transparent' }]
           },
           options: {
-            plugins: { legend: { position: 'bottom', labels: { color: 'var(--text-muted)', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: 'var(--text-muted)', font: { family: "'Inter', sans-serif", size: 11 }, padding: 8 } },
+              tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}` } }
+            },
             responsive: true,
-            maintainAspectRatio: false
+            maintainAspectRatio: true,
+            aspectRatio: 1.6,
+            cutout: '60%'
           }
         });
       }
@@ -2820,7 +3025,7 @@ const Renderer = (() => {
       const method = profile?.methodId ? MethodsManager.getById(profile.methodId) : null;
       info.style.display = 'flex';
       info.innerHTML = method
-        ? `Método: <strong>${method.nome}</strong>`
+        ? `Método: <strong>${UtilsEngine.escapeXML(method.nome)}</strong>`
         : '<span style="color:#DC2626;">⚠ Nenhum método vinculado. Edite o teste para configurar.</span>';
     };
 
@@ -2917,7 +3122,7 @@ const Renderer = (() => {
               timeout
             }, (progress) => {
               if (progressDiv) {
-                progressDiv.innerHTML = `<span class="badge info">${profile.nome}: ${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;
+                progressDiv.innerHTML = `<span class="badge info">${UtilsEngine.escapeXML(profile.nome)}: ${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;
               }
             });
 
@@ -3011,25 +3216,36 @@ const Renderer = (() => {
       newUserBtn.addEventListener('click', () => _showCreateUserModal());
     }
 
-    // --- Toggle / Excluir Usuário ---
-    document.querySelectorAll('[data-action="toggle-user"]').forEach(button => {
+    // --- Ações de Usuário ---
+    document.querySelectorAll('[data-action="deactivate-user"]').forEach(button => {
+      button.addEventListener('click', () => {
+        _showDeactivateModal(button.dataset.userId);
+      });
+    });
+
+    document.querySelectorAll('[data-action="activate-user"]').forEach(button => {
       button.addEventListener('click', async () => {
         const userId = button.dataset.userId;
-        const user = UsersManager.getById(userId);
-        if (!user) return;
-        await UsersManager.setActive(userId, !user.ativo);
-        NotificationsManager.success(`Usuário ${user.ativo ? 'desativado' : 'ativado'}`);
+        await UsersManager.setActive(userId, true, { inativacaoTipo: null, inativoAte: null });
+        NotificationsManager.success('Usuário reativado com sucesso');
         _renderMainContent('users');
         _attachEventListeners();
+      });
+    });
+
+    document.querySelectorAll('[data-action="reset-password"]').forEach(button => {
+      button.addEventListener('click', () => {
+        _showResetPasswordModal(button.dataset.userId);
       });
     });
 
     document.querySelectorAll('[data-action="delete-user"]').forEach(button => {
       button.addEventListener('click', () => {
         const userId = button.dataset.userId;
+        const user = UsersManager.getById(userId);
         ModalManager.confirm({
           title: 'Excluir usuário',
-          body: '<p>Deseja realmente excluir este usuário? A ação não pode ser desfeita.</p>',
+          body: `<p>Deseja realmente excluir <strong>${user?.nome || 'este usuário'}</strong>? A ação não pode ser desfeita.</p>`,
           confirmText: 'Excluir',
           cancelText: 'Cancelar',
           onConfirm: () => {
@@ -3049,6 +3265,23 @@ const Renderer = (() => {
     header.innerHTML = _buildHeader();
   };
 
+  const _syncTabData = async (tabId) => {
+    let changed = false;
+    try {
+      if      (tabId === 'users')                         changed = !!(await UsersManager.syncFromTurso?.());
+      else if (tabId === 'groups')                        changed = !!(await GroupsManager.syncFromTurso?.());
+      else if (tabId === 'methods')                       changed = !!(await MethodsManager.syncFromTurso?.());
+      else if (tabId === 'schedules')                     changed = !!(await SchedulerManager.syncFromTurso?.());
+      else if (tabId === 'profiles')                      changed = !!(await ProfilesManager.syncFromTurso?.());
+      else if (tabId === 'results' || tabId === 'reports') changed = false;
+    } catch {}
+    if (changed && state.activeTab === tabId) {
+      _renderMainContent(tabId);
+      _attachEventListeners();
+      if (tabId === 'schedules') setTimeout(() => _initializeScheduleChart('day'), 100);
+    }
+  };
+
   const _navigate = (tabId) => {
     state.activeTab = tabId;
     SidebarManager.render(state.currentUser, tabId, _navigate);
@@ -3062,6 +3295,7 @@ const Renderer = (() => {
     } else if (tabId === 'schedules') {
       setTimeout(() => _initializeScheduleChart('day'), 100);
     }
+    _syncTabData(tabId);
   };
 
   const renderMainApp = (user) => {

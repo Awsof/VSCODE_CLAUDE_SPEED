@@ -7,7 +7,7 @@
  * (campos grandes — ficam apenas no IndexedDB local)
  */
 
-import { getDb, initSchema, getAuthPayload } from './db.js';
+import { getDb, initSchema, getAuthPayload } from './_db.js';
 
 const _rowToResult = (r) => ({
   id: r.id,
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     db = getDb();
     await initSchema(db);
   } catch (err) {
-    return res.status(503).json({ error: 'Banco de dados indisponível', detail: err.message });
+    return res.status(503).json({ error: 'Banco de dados indisponível' });
   }
 
   // ─── GET: listar resultados ───────────────────────────────────────────────
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
       const { rows } = await db.execute({ sql, args });
       return res.status(200).json({ results: rows.map(_rowToResult) });
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       });
       return res.status(201).json({ ok: true });
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       await db.execute('DELETE FROM results');
       return res.status(200).json({ ok: true });
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 

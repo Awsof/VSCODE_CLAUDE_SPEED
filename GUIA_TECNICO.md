@@ -2,7 +2,7 @@
 
 **Público-alvo:** Analistas e desenvolvedores responsáveis pela manutenção e evolução do sistema  
 **Projeto:** Monitor de Performance para endpoints SOAP/WCF — Grupo DB · Medicina Diagnóstica  
-**Última atualização:** 2026-05-25
+**Última atualização:** 2026-06-24
 
 ---
 
@@ -39,7 +39,7 @@ O **Speed Teste DBSync v3** é uma SPA (Single Page Application) para monitorame
 - Exportar relatórios em Excel, CSV e HTML (com gráficos interativos, otimizado para impressão via browser)
 - Controle de acesso granular por papel (admin / operador / visualizador)
 
-**O sistema é 100% client-side.** Não existe banco de dados — toda a persistência é feita via `localStorage`. O único componente server-side é a função serverless `/api/proxy.js` (Vercel), que serve exclusivamente como proxy CORS para as chamadas SOAP.
+**O sistema usa uma arquitetura híbrida.** A persistência principal é feita no banco de dados em nuvem **Turso** (libSQL/SQLite), acessível via API serverless no Vercel. O browser mantém um cache local em localStorage (cenários) e IndexedDB (histórico de resultados com payload completo). Toda autenticação é feita via JWT.
 
 ---
 
@@ -48,12 +48,15 @@ O **Speed Teste DBSync v3** é uma SPA (Single Page Application) para monitorame
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
 | Frontend | Vanilla JavaScript (ES6+) | — |
-| Persistência | `localStorage` (browser) | — |
+| Banco de dados (nuvem) | Turso — libSQL/SQLite | `@libsql/client` |
+| Cache local — entidades | `localStorage` (browser, prefix `stp_v3_`) | — |
+| Cache local — resultados | IndexedDB (`stp_results_v1`) | — |
+| Autenticação | JWT HS256 customizado (7 dias), via `api/_db.js` | — |
 | Charts | Chart.js (CDN) | 4.4.0 |
 | Export Excel | SheetJS/XLSX (CDN) | 0.18.5 |
 | Export HTML/PDF | Geração nativa via Blob + `window.print()` | — |
 | Hosting | Vercel (static + serverless) | — |
-| Proxy | Vercel Serverless Function (Node.js) | — |
+| API / Proxy | Vercel Serverless Functions (Node.js ESM) | — |
 | Fontes | Google Fonts (Inter + JetBrains Mono) | — |
 
 **Sem build step.** Não há webpack, vite, babel, npm scripts, transpilação ou bundling. Os arquivos são servidos diretamente como estáticos. Isso significa:
@@ -262,20 +265,33 @@ window.MeuModulo = MeuModulo;
 
 ## 7. Camada de Storage
 
-### StorageEngine — Abstração Base
+### Arquitetura de persistência
 
-Todas as leituras/escritas no `localStorage` passam pelo `StorageEngine`. **Nunca acesse `localStorage` diretamente** fora desta camada.
+O sistema usa **três camadas** de persistência:
+
+| Camada | Tecnologia | O que guarda |
+|--------|-----------|-------------|
+| **Turso (nuvem)** | libSQL/SQLite via `@libsql/client` | Usuários, Grupos, Perfis, Métodos, Agendamentos, metadados de Resultados |
+| **IndexedDB** | `stp_results_v1` (browser) | Cache completo de resultados (incluindo `requestPayload` e `responseBody`, que não vão ao Turso) |
+| **localStorage** | prefix `stp_v3_` | Apenas **Cenários** (sem sync com Turso) |
+
+**Fluxo de sync:** cada Manager (`UsersManager`, `ProfilesManager`, etc.) tem `syncFromTurso()`. O `_navigate()` do Renderer dispara o sync ao mudar de aba — renderiza com cache local imediatamente e re-renderiza se Turso trouxer novidades. No boot, `UsersManager.init()` e `ResultsManager.syncFromTurso()` sincronizam automaticamente.
+
+**Importante:** `requestPayload` e `responseBody` **nunca** são enviados ao Turso — ficam apenas no IndexedDB local, pois são muito grandes para sync.
+
+### StorageEngine — Cache local
+
+Usado para **cenários** (e como fallback enquanto sync com Turso não completa). Nunca acesse `localStorage` diretamente fora desta camada.
 
 ```javascript
-// Chaves reais no localStorage:
-// stp_v3_users, stp_v3_profiles, stp_v3_groups, stp_v3_scenarios,
-// stp_v3_results, stp_v3_schedules, stp_v3_methods, stp_v3_audit_log
+// Única chave relevante ainda no localStorage:
+// stp_v3_scenarios
 
-StorageEngine.get('users', [])         // Lê stp_v3_users (default = [])
-StorageEngine.set('users', arrayData)  // Serializa e salva
-StorageEngine.remove('users')          // Remove a chave
+StorageEngine.get('scenarios', [])     // Lê stp_v3_scenarios (default = [])
+StorageEngine.set('scenarios', data)   // Serializa e salva
+StorageEngine.remove('scenarios')      // Remove a chave
 StorageEngine.list()                   // Retorna todas as chaves stp_v3_*
-StorageEngine.exists('profiles')       // boolean
+StorageEngine.exists('scenarios')      // boolean
 ```
 
 ### Schemas das Entidades
@@ -393,11 +409,26 @@ StorageEngine.exists('profiles')       // boolean
 
 ### Regra de Cleanup de Resultados
 
-O `ResultsManager.save()` verifica automaticamente se o total de resultados ultrapassou **5.000 registros**. Se ultrapassar, remove os registros mais antigos até voltar ao limite. O cleanup é **automático e silencioso** — não requer chamada manual.
+O `ResultsManager` mantém um cache in-memory carregado do IndexedDB. Ao adicionar um resultado, se o total ultrapassar **10.000 registros**, os 10% mais antigos são removidos automaticamente. O cleanup é silencioso e não requer chamada manual.
+
+O `syncFromTurso()` baixa metadados de resultados do Turso no boot. Resultados com `requestPayload`/`responseBody` não existentes no Turso são preenchidos com `null` em `_rowToResult()`.
+
+### API de dados no Turso
+
+```javascript
+// Env vars obrigatórias no Vercel:
+TURSO_DATABASE_URL=libsql://speedtestdb-awsof.aws-us-east-1.turso.io
+TURSO_AUTH_TOKEN=<token>
+JWT_SECRET=<secret-forte>  // obrigatório, sem fallback
+
+// initSchema() é idempotente — pode ser chamado em qualquer handler sem efeito colateral
+```
+
+Cada handler de API importa de `api/_db.js`: `getDb()`, `getAuthPayload()`, `signJWT()`, `verifyJWT()`, `initSchema()`.
 
 ### Migração v2 → v3
 
-Na inicialização, o `StorageEngine` verifica se existem dados com prefixo `stp_` (v2) e os migra automaticamente para `stp_v3_`. Isso ocorre **uma única vez** e é transparente ao usuário.
+Na inicialização, o `StorageEngine` verifica se existem dados com prefixo `stp_` (v2) e os migra automaticamente para `stp_v3_`. Isso ocorre **uma única vez** e é transparente ao usuário. Migração de dados localStorage → Turso é feita via `POST /api/users { _migrate: true, users: [...] }`.
 
 ---
 
@@ -408,17 +439,25 @@ Na inicialização, o `StorageEngine` verifica se existem dados com prefixo `stp
 ```
 Usuário digita login/senha
   ↓
-UsersManager.validate(usuario, senha)
-  → SHA-256(senha) === user.senhaHash?
-  ↓ (sim)
-SessionManager.login(user)
-  → Salva em sessionStorage: { userId, usuario, nivel, loginAt, lastActivity }
+SHA-256(senha) calculado no cliente (assets/js/storage/users.js)
+  ↓
+POST /api/login { usuario, senha_em_sha256 }
+  → Turso: SELECT * FROM users WHERE usuario = ? AND ativo = 1
+  → compara senhaHash com o hash recebido
+  ↓ (match)
+api/login retorna { ok: true, user, token: <JWT 7 dias> }
+  ↓
+SessionManager.login(user, jwtToken)
+  → Salva em sessionStorage: { userId, usuario, nivel, loginAt, lastActivity, token: <JWT> }
+  → token = null se não houver JWT (nunca usa string aleatória como fallback)
   → Dispara CustomEvent 'session:login'
   ↓
 app.js recarrega a página → Renderer.renderMainApp(user)
   ↓
 ScheduleRunner.start() — inicia monitor CRON
 ```
+
+**JWT:** Token HS256, expira em 7 dias, secret via `JWT_SECRET` env var (obrigatória — sem fallback). Todas as chamadas autenticadas enviam `Authorization: Bearer <token>`. `getAuthPayload(req)` em `api/_db.js` extrai e verifica o JWT em qualquer handler.
 
 ### Sessão e Timeout
 
@@ -725,16 +764,21 @@ animations.css  → keyframes, fade-in-up, pulse
 
 **Arquivo:** `/api/proxy.js` (Vercel Serverless Function)
 
-**Propósito exclusivo:** Proxy CORS para requisições SOAP. O browser não pode fazer chamadas diretas a endpoints externos por restrições CORS. Todo SOAP passa pelo proxy.
+**Propósito:** Proxy CORS para requisições SOAP — o browser não pode fazer chamadas diretas por restrições CORS. Todo SOAP passa pelo proxy.
+
+**Autenticação obrigatória:** o proxy rejeita com 401 se não houver JWT válido no header `Authorization: Bearer`.
+
+**Whitelist de domínios:** apenas `wsmb.diagnosticosdobrasil.com.br` e `wsmp.diagnosticosdobrasil.com.br` são permitidos como `targetUrl`. Qualquer outro domínio retorna 403.
 
 ### Request (browser → proxy)
 
 ```javascript
 POST /api/proxy
 Content-Type: application/json
+Authorization: Bearer <jwt>
 
 {
-  "targetUrl": "https://api.grupoDb.com.br/soap/endpoint",
+  "targetUrl": "https://wsmb.diagnosticosdobrasil.com.br/soap/endpoint",
   "headers": {
     "SOAPAction": "NomeDoMetodo",
     "Content-Type": "text/xml; charset=utf-8"
@@ -783,7 +827,7 @@ STP_DEBUG.session()
 STP_DEBUG.rbac()
 // → { nivel: "operador", permissions: { "profiles:create": true, "users:create": false, ... } }
 
-// Contagem de entidades no localStorage
+// Contagem de entidades (cache local — pode divergir do Turso por breve período)
 STP_DEBUG.storage()
 // → { users: 3, profiles: 12, groups: 2, scenarios: 5, results: 847, schedules: 4 }
 
@@ -795,25 +839,35 @@ STP_DEBUG.schedules()
 // → lista com nome, proximaExecucao, ativo
 ```
 
-### Inspecionar dados brutos do localStorage
+### Inspecionar cache local
 
 ```javascript
-// No console:
-JSON.parse(localStorage.getItem('stp_v3_results')).length  // quantos resultados
-JSON.parse(localStorage.getItem('stp_v3_profiles'))        // todos os perfis
+// Resultados no IndexedDB (cache local):
+ResultsManager.count()  // total de resultados em cache
+ResultsManager.list()   // array completo (inclui requestPayload/responseBody)
+
+// Cenários no localStorage:
+JSON.parse(localStorage.getItem('stp_v3_scenarios'))
+
+// Verificar se sync com Turso completou (os managers atualizam _cache após sync):
+UsersManager.list()     // retorna cache local de usuários
+ProfilesManager.list()  // idem para perfis
 ```
 
-### Limpar dados de teste
+### Limpar cache local (não apaga dados no Turso)
 
 ```javascript
-// Remover todos os resultados:
-localStorage.removeItem('stp_v3_results')
+// Limpar cache IndexedDB de resultados (os dados no Turso permanecem):
+await ResultsManager.clear()
 
-// Limpar tudo (reset completo):
+// Limpar cenários do localStorage:
+localStorage.removeItem('stp_v3_scenarios')
+
+// Reset completo do cache local (dados no Turso não são afetados):
 Object.keys(localStorage)
   .filter(k => k.startsWith('stp_v3_'))
   .forEach(k => localStorage.removeItem(k))
-location.reload()
+location.reload()  // ao recarregar, os dados do Turso serão sincronizados novamente
 ```
 
 ---
@@ -1028,16 +1082,21 @@ Os browsers cacheiam arquivos JS e CSS agressivamente. Para garantir que usuári
 
 | Arquivo | Versão atual |
 |---------|-------------|
-| `storage/engine.js` | v=9 |
-| `storage/schedules.js` | v=10 |
-| `auth/session.js` | v=10 |
+| `ui/renderer.js` | v=24 |
+| `auth/session.js` | v=14 |
+| `ui/login-screen.js` | v=18 |
+| `app.js` | v=15 |
 | `features/scheduler.js` | v=10 |
-| `ui/renderer.js` | v=15 |
-| `reports/reports.js` | v=14 |
-| Demais JS | v=9 |
+| `storage/schedules.js` | v=13 |
+| `storage/results.js` | v=14 |
+| `storage/users.js` | v=14 |
+| `storage/profiles.js` | v=10 |
+| `storage/groups.js` | v=12 |
+| `storage/methods.js` | v=12 |
+| `reports/reports.js` | v=20 |
 | `css/layout.css` | v=10 |
 | `css/charts.css` | v=10 |
-| Demais CSS | v=9 |
+| Demais JS/CSS | v=9 |
 
 ---
 

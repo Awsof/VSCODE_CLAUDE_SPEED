@@ -396,7 +396,7 @@
 
     <div class="note">
       <span class="note-icon">ℹ️</span>
-      <span>Os dados ficam salvos no próprio navegador (localStorage). Por isso, use sempre o mesmo computador e navegador para manter o histórico completo.</span>
+      <span>Os dados ficam salvos no banco de dados em nuvem (Turso). Você pode acessar o sistema de qualquer computador ou navegador e seu histórico estará disponível. É necessária conexão com a internet.</span>
     </div>
   </div>
 
@@ -841,7 +841,7 @@
 
     <div class="tip">
       <span class="tip-icon">✅</span>
-      <span>O sistema mantém até <strong>5.000 resultados</strong>. Os mais antigos são removidos automaticamente quando esse limite é atingido.</span>
+      <span>O sistema mantém até <strong>10.000 resultados</strong> em cache local. Os mais antigos são removidos do cache automaticamente quando esse limite é atingido. O histórico completo fica armazenado no banco de dados em nuvem.</span>
     </div>
   </div>
 
@@ -1018,7 +1018,7 @@
 
     <div class="card">
       <strong>Meu histórico sumiu — o que aconteceu?</strong>
-      <p style="margin-top:8px;color:var(--muted);">Os dados ficam salvos no navegador. Se você limpou os dados do navegador (cache, cookies, localStorage) ou usou outro computador/navegador, o histórico local pode não estar disponível neste novo contexto.</p>
+      <p style="margin-top:8px;color:var(--muted);">Os dados ficam salvos no banco de dados em nuvem e são sincronizados automaticamente ao abrir o sistema. Se o histórico não aparecer, verifique sua conexão com a internet e recarregue a página. Se você limpou o cache local do navegador, os dados serão baixados novamente do servidor na próxima vez que acessar.</p>
     </div>
 
     <div class="card">
@@ -1039,6 +1039,11 @@
     <div class="card">
       <strong>O que é "Timeout"?</strong>
       <p style="margin-top:8px;color:var(--muted);">É o tempo máximo (em segundos) que o sistema aguarda uma resposta do serviço. Se o serviço demorar mais do que esse tempo, a requisição é registrada como falha com motivo "timeout". O padrão é 120 segundos (2 minutos).</p>
+    </div>
+
+    <div class="card">
+      <strong>Tentei fazer login e apareceu "Conta bloqueada" — o que fazer?</strong>
+      <p style="margin-top:8px;color:var(--muted);">Por segurança, após 5 tentativas de login com senha incorreta, a conta fica bloqueada por 15 minutos. Aguarde o tempo indicado na mensagem e tente novamente. Se não lembrar a senha, entre em contato com um Administrador do sistema para redefini-la.</p>
     </div>
   </div>
 

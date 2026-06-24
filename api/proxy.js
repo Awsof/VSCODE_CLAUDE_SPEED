@@ -1,25 +1,44 @@
 /**
  * API Proxy Handler — Vercel Serverless Function
- * 
+ *
  * Encaminha requisições SOAP para targets externos
  * Usado para contornar CORS no navegador
  */
 
+import { getAuthPayload } from './_db.js';
+
+const ALLOWED_DOMAINS = [
+  'wsmb.diagnosticosdobrasil.com.br',
+  'wsmp.diagnosticosdobrasil.com.br'
+];
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  const authPayload = getAuthPayload(req);
+  if (!authPayload) return res.status(401).json({ error: 'Autenticação obrigatória' });
+
   const { targetUrl, headers = {}, payload, timeoutMs = 120000 } = req.body || {};
-  
+
   if (!targetUrl || !payload) {
-    return res.status(400).json({ 
-      error: 'targetUrl e payload obrigatórios' 
+    return res.status(400).json({
+      error: 'targetUrl e payload obrigatórios'
     });
+  }
+
+  try {
+    const { hostname } = new URL(targetUrl);
+    if (!ALLOWED_DOMAINS.includes(hostname)) {
+      return res.status(403).json({ error: 'Domínio não autorizado' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'targetUrl inválida' });
   }
 
   const start = Date.now();

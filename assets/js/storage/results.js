@@ -256,9 +256,19 @@ const ResultsManager = (() => {
 
   const exportJSON = () => JSON.stringify(_cache, null, 2);
 
-  /** Limpar todos os resultados (async — aguarda limpeza no IDB) */
+  /** Limpar todos os resultados — apaga IndexedDB local e Turso (admin only) */
   const clear = async () => {
     _cache = [];
+    // Sincronizar deleção com Turso (fire-and-forget; requer JWT admin)
+    try {
+      const token = typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+      if (token) {
+        fetch('/api/results', {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        }).catch(e => console.warn('[ResultsManager] Falha ao limpar Turso:', e.message));
+      }
+    } catch {}
     if (!_db) return true;
     return new Promise((resolve) => {
       const req = _db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).clear();

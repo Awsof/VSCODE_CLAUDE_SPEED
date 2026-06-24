@@ -17,6 +17,58 @@ const GroupsManager = (() => {
   const STORE_KEY = 'groups';
   const LEGACY_KEY = 'stp_groups_v2';
 
+  const _token = () =>
+    typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+
+  const _apiSync = (method, path, body) => {
+    try {
+      const token = _token();
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+      if (body) opts.body = JSON.stringify(body);
+      fetch(path, opts).catch(e => console.warn('[GroupsManager] API sync falhou:', e.message));
+    } catch (e) {
+      console.warn('[GroupsManager] _apiSync error:', e.message);
+    }
+  };
+
+  const syncFromTurso = async () => {
+    try {
+      const token = _token();
+      // GET é público — funciona sem JWT; POST de migração requer JWT
+      const getHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+      const res = await fetch('/api/groups', { headers: getHeaders });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const remoteGroups = data.groups || [];
+      const local = StorageEngine.get(STORE_KEY, []);
+
+      // Auto-migração: Turso vazio mas localStorage tem dados (requer JWT)
+      if (remoteGroups.length === 0 && local.length > 0 && token) {
+        const postHeaders = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+        console.log('[GroupsManager] Turso vazio — migrando ' + local.length + ' grupo(s)...');
+        for (const g of local) {
+          try {
+            await fetch('/api/groups', { method: 'POST', headers: postHeaders, body: JSON.stringify(g) });
+          } catch {}
+        }
+        console.log('[GroupsManager] Migração concluída');
+        return false;
+      }
+
+      const remoteIds = remoteGroups.map(g => g.id).sort().join();
+      const localIds  = local.map(g => g.id).sort().join();
+      if (remoteIds === localIds && remoteGroups.length === local.length) return false;
+
+      StorageEngine.set(STORE_KEY, remoteGroups);
+      console.log('[GroupsManager] ' + remoteGroups.length + ' grupo(s) sincronizados do Turso');
+      return true;
+    } catch (e) {
+      console.warn('[GroupsManager] syncFromTurso falhou:', e.message);
+      return false;
+    }
+  };
+
   /**
    * Gerar UUID v4 simples
    */
@@ -125,7 +177,7 @@ const GroupsManager = (() => {
       const groups = list();
       groups.push(newGroup);
       StorageEngine.set(STORE_KEY, groups);
-
+      _apiSync('POST', '/api/groups', newGroup);
       return newGroup;
     } catch (error) {
       console.error('[GroupsManager] Erro ao criar:', error);
@@ -157,7 +209,7 @@ const GroupsManager = (() => {
       const updatedGroup = { ...groups[index], ...updates };
       groups[index] = updatedGroup;
       StorageEngine.set(STORE_KEY, groups);
-
+      _apiSync('PUT', '/api/groups?id=' + id, updates);
       return updatedGroup;
     } catch (error) {
       console.error('[GroupsManager] Erro ao atualizar:', error);
@@ -189,6 +241,7 @@ const GroupsManager = (() => {
       }
 
       StorageEngine.set(STORE_KEY, filtered);
+      _apiSync('DELETE', '/api/groups?id=' + id);
       return true;
     } catch (error) {
       console.error('[GroupsManager] Erro ao deletar:', error);
@@ -211,6 +264,7 @@ const GroupsManager = (() => {
     create,
     update,
     delete_,
-    count
+    count,
+    syncFromTurso
   };
 })();

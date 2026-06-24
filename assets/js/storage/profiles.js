@@ -22,6 +22,57 @@ const ProfilesManager = (() => {
   const STORE_KEY = 'profiles';
   const LEGACY_KEY = 'stp_profiles_v2';
 
+  const _token = () =>
+    typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+
+  const _apiSync = (method, path, body) => {
+    try {
+      const token = _token();
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+      if (body) opts.body = JSON.stringify(body);
+      fetch(path, opts).catch(e => console.warn('[ProfilesManager] API sync falhou:', e.message));
+    } catch (e) {
+      console.warn('[ProfilesManager] _apiSync error:', e.message);
+    }
+  };
+
+  const syncFromTurso = async () => {
+    try {
+      const token = _token();
+      const getHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+      const res = await fetch('/api/profiles', { headers: getHeaders });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const remoteProfiles = data.profiles || [];
+      const local = StorageEngine.get(STORE_KEY, []);
+
+      // Auto-migração: Turso vazio mas localStorage tem dados (requer JWT)
+      if (remoteProfiles.length === 0 && local.length > 0 && token) {
+        const postHeaders = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+        console.log('[ProfilesManager] Turso vazio — migrando ' + local.length + ' perfil(s)...');
+        for (const p of local) {
+          try {
+            await fetch('/api/profiles', { method: 'POST', headers: postHeaders, body: JSON.stringify(p) });
+          } catch {}
+        }
+        console.log('[ProfilesManager] Migração concluída');
+        return false;
+      }
+
+      const remoteIds = remoteProfiles.map(p => p.id).sort().join();
+      const localIds  = local.map(p => p.id).sort().join();
+      if (remoteIds === localIds && remoteProfiles.length === local.length) return false;
+
+      StorageEngine.set(STORE_KEY, remoteProfiles);
+      console.log('[ProfilesManager] ' + remoteProfiles.length + ' perfil(s) sincronizados do Turso');
+      return true;
+    } catch (e) {
+      console.warn('[ProfilesManager] syncFromTurso falhou:', e.message);
+      return false;
+    }
+  };
+
   /**
    * Gerar UUID v4 simples
    */
@@ -146,6 +197,7 @@ const ProfilesManager = (() => {
 
       profiles.push(newProfile);
       StorageEngine.set(STORE_KEY, profiles);
+      _apiSync('POST', '/api/profiles', newProfile);
 
       return newProfile;
     } catch (error) {
@@ -186,6 +238,7 @@ const ProfilesManager = (() => {
       
       profiles[index] = updatedProfile;
       StorageEngine.set(STORE_KEY, profiles);
+      _apiSync('PUT', '/api/profiles?id=' + id, updates);
 
       return updatedProfile;
     } catch (error) {
@@ -208,6 +261,7 @@ const ProfilesManager = (() => {
       }
 
       StorageEngine.set(STORE_KEY, filtered);
+      _apiSync('DELETE', '/api/profiles?id=' + id);
       return true;
     } catch (error) {
       console.error('[ProfilesManager] Erro ao deletar:', error);
@@ -267,6 +321,7 @@ const ProfilesManager = (() => {
     count,
     countByUser,
     getPayloadTemplate,
-    fillPayload
+    fillPayload,
+    syncFromTurso
   };
 })();

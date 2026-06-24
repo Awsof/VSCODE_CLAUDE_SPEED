@@ -58,8 +58,19 @@ const SessionManager = (() => {
     return {
       id: session.userId,
       usuario: session.usuario,
-      nivel: session.nivel
+      nivel: session.nivel,
+      senhaTemporaria: session.senhaTemporaria || false
     };
+  };
+
+  const clearSenhaTemporaria = () => {
+    try {
+      const sessionData = sessionStorage.getItem(SESSION_KEY);
+      if (!sessionData) return;
+      const session = JSON.parse(sessionData);
+      session.senhaTemporaria = false;
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch {}
   };
 
   /**
@@ -95,9 +106,10 @@ const SessionManager = (() => {
         userId: user.id,
         usuario: user.usuario,
         nivel: user.nivel,
+        senhaTemporaria: user.senhaTemporaria || false,
         loginAt: now,
         lastActivity: now,
-        token: jwtToken || _generateToken()
+        token: jwtToken || null
       };
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -132,32 +144,19 @@ const SessionManager = (() => {
   };
 
   /**
-   * Renovar token da sessão (refresh)
+   * Renovar token da sessão (refresh) — preserva o JWT existente
    */
   const refresh = () => {
     const session = getSession();
     if (!session) return false;
 
     try {
-      session.token = _generateToken();
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
       return true;
     } catch (error) {
       console.error('[SessionManager] Erro ao renovar sessão:', error);
       return false;
     }
-  };
-
-  /**
-   * Gerar token simples (não é JWT, apenas uma string)
-   */
-  const _generateToken = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let token = '';
-    for (let i = 0; i < 32; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
   };
 
   /**
@@ -245,6 +244,7 @@ const SessionManager = (() => {
     getTimeRemaining,
     getDebugInfo,
     getToken,
+    clearSenhaTemporaria,
     SESSION_TIMEOUT
   };
 })();

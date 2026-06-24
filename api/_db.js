@@ -19,7 +19,11 @@ export const getDb = () => {
 export const sha256 = (str) =>
   crypto.createHash('sha256').update(str, 'utf8').digest('hex');
 
-const _secret = () => process.env.JWT_SECRET || 'stp-dev-secret-altere-em-producao';
+const _secret = () => {
+  const s = process.env.JWT_SECRET;
+  if (!s) throw new Error('JWT_SECRET não configurado');
+  return s;
+};
 
 export const signJWT = (payload) => {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -63,8 +67,21 @@ export const initSchema = async (db) => {
     nivel TEXT NOT NULL DEFAULT 'visualizador',
     ativo INTEGER NOT NULL DEFAULT 1,
     criadoEm TEXT NOT NULL,
-    updatedAt TEXT
+    updatedAt TEXT,
+    senhaTemporaria INTEGER DEFAULT 0,
+    inativacaoTipo TEXT,
+    inativoAte TEXT
   )`);
+  // Migrate existing users table: add new columns if absent
+  for (const col of [
+    'senhaTemporaria INTEGER DEFAULT 0',
+    'inativacaoTipo TEXT',
+    'inativoAte TEXT',
+    'loginFailures INTEGER DEFAULT 0',
+    'lockedUntil TEXT'
+  ]) {
+    try { await db.execute(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  }
   await db.execute(`CREATE TABLE IF NOT EXISTS results (
     id TEXT PRIMARY KEY,
     seq INTEGER,
@@ -81,5 +98,60 @@ export const initSchema = async (db) => {
     executadoPor TEXT,
     executadoEm TEXT NOT NULL,
     cenarioId TEXT
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS groups (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    cor TEXT,
+    descricao TEXT,
+    criadoPor TEXT,
+    criadoEm TEXT NOT NULL,
+    updatedAt TEXT
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS methods (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    operacao TEXT,
+    soapAction TEXT NOT NULL,
+    payloadTemplate TEXT NOT NULL,
+    xmlTag TEXT,
+    descricao TEXT,
+    criadoPor TEXT,
+    criadoEm TEXT NOT NULL,
+    updatedAt TEXT
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS schedules (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    descricao TEXT,
+    cenarioId TEXT,
+    profileIds TEXT NOT NULL,
+    config TEXT NOT NULL,
+    cron TEXT,
+    agendamento TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    proximaExecucao TEXT,
+    ultimaExecucao TEXT,
+    criadoPor TEXT,
+    criadoEm TEXT NOT NULL,
+    updatedAt TEXT
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS profiles (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    codigo TEXT NOT NULL,
+    url TEXT NOT NULL,
+    version TEXT DEFAULT '1.0',
+    payloadTemplate TEXT,
+    xmlTag TEXT DEFAULT 'diag:NumeroAtendimentoApoiado',
+    soapAction TEXT,
+    codigoApoiado TEXT,
+    codigoSenha TEXT,
+    cor TEXT DEFAULT '#0F9B94',
+    groupId TEXT,
+    methodId TEXT,
+    criadoPor TEXT,
+    criadoEm TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
   )`);
 };

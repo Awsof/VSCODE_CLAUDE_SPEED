@@ -75,7 +75,7 @@ const LoginScreenManager = (() => {
 
           <!-- Footer -->
           <div style="text-align:center;margin-top:20px;font-size:11px;color:#9CA3AF;letter-spacing:0.04em;">
-            Speed Teste DBSync • Vercel Serverless
+            Speed Teste DBSync
           </div>
 
         </div>
@@ -393,6 +393,105 @@ const LoginScreenManager = (() => {
     });
   };
 
+  const renderForcePasswordChange = (currentUser) => {
+    const container = document.getElementById('app') || document.body;
+    if (container.id === 'app') container.classList.add('auth-mode');
+
+    container.innerHTML = `
+      <div id="force-pw-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:#F8F9FA;">
+        <div style="background:#FFFFFF;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);padding:40px;max-width:400px;width:100%;">
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:24px;gap:6px;">
+            <img src="assets/logo.svg" alt="Grupo DB" style="height:52px;margin-bottom:6px;" />
+            <div style="font-size:0.95rem;font-weight:600;color:#0F9B94;">Login realizado com sucesso!</div>
+            <div style="font-size:0.9rem;font-weight:600;color:#1F2937;">Troca de Senha Obrigatória</div>
+            <div style="font-size:0.78rem;color:#6B7280;max-width:320px;">
+              Olá, <strong>${currentUser.usuario}</strong>! Seu acesso foi criado com uma senha temporária.
+              Defina uma senha permanente para continuar.
+            </div>
+          </div>
+          <form id="force-pw-form" style="display:flex;flex-direction:column;gap:16px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:#1F2937;margin-bottom:6px;">Nova Senha</label>
+              <input id="fpw-nova" type="password" placeholder="Mínimo 6 caracteres"
+                style="width:100%;padding:10px 12px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;outline:none;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:#1F2937;margin-bottom:6px;">Confirmar Senha</label>
+              <input id="fpw-confirma" type="password" placeholder="Repita a nova senha"
+                style="width:100%;padding:10px 12px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px;outline:none;" />
+            </div>
+            <div id="fpw-error" style="display:none;padding:10px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:6px;color:#DC2626;font-size:12px;font-weight:500;"></div>
+            <button type="submit"
+              style="padding:12px;background:#0F9B94;color:#FFFFFF;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;"
+              onmouseover="this.style.background='#0D8A84'" onmouseout="this.style.background='#0F9B94'">
+              SALVAR SENHA
+            </button>
+            <div id="fpw-loading" style="display:none;text-align:center;font-size:12px;color:#6B7280;">Salvando...</div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const form = document.getElementById('force-pw-form');
+    if (!form) return;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nova     = document.getElementById('fpw-nova').value;
+      const confirma = document.getElementById('fpw-confirma').value;
+      const errDiv   = document.getElementById('fpw-error');
+      const loadDiv  = document.getElementById('fpw-loading');
+      const btn      = form.querySelector('button[type="submit"]');
+
+      errDiv.style.display = 'none';
+      if (nova.length < 6) {
+        errDiv.textContent = 'A senha deve ter no mínimo 6 caracteres';
+        errDiv.style.display = 'block'; return;
+      }
+      if (nova !== confirma) {
+        errDiv.textContent = 'As senhas não conferem';
+        errDiv.style.display = 'block'; return;
+      }
+
+      loadDiv.style.display = 'block';
+      btn.disabled = true;
+
+      try {
+        const encoder = new TextEncoder();
+        const hashBuf = await crypto.subtle.digest('SHA-256', encoder.encode(nova));
+        const newHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+        if (currentUser.id) {
+          // Atualizar Turso PRIMEIRO — sem JWT, servidor valida via senhaTemporaria=1
+          const apiRes = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ _selfChange: true, userId: currentUser.id, senhaHash: newHash })
+          });
+
+          if (!apiRes.ok) {
+            const errBody = await apiRes.json().catch(() => ({}));
+            errDiv.textContent = 'Erro ao salvar no servidor: ' + (errBody.error || 'status ' + apiRes.status) + '. Tente novamente.';
+            errDiv.style.display = 'block';
+            loadDiv.style.display = 'none';
+            btn.disabled = false;
+            return;
+          }
+          console.log('[ForceChange] Turso atualizado: senhaTemporaria=false e novo hash');
+        }
+
+        // Turso confirmado (ou sem token) — atualizar local e redirecionar
+        await UsersManager.update(currentUser.id, { senha: nova, senhaTemporaria: false });
+        SessionManager.clearSenhaTemporaria?.();
+        window.location.href = window.location.pathname;
+      } catch (err) {
+        errDiv.textContent = 'Erro ao salvar senha: ' + err.message;
+        errDiv.style.display = 'block';
+        loadDiv.style.display = 'none';
+        btn.disabled = false;
+      }
+    });
+  };
+
   const _createDefaultAdmin = async () => {
     if (!UsersManager.isEmpty()) {
       return null;
@@ -442,7 +541,8 @@ const LoginScreenManager = (() => {
   return {
     show,
     renderLoginScreen,
-    renderFirstAccessScreen
+    renderFirstAccessScreen,
+    renderForcePasswordChange
   };
 })();
 

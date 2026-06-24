@@ -5,6 +5,67 @@
 const SchedulerManager = (() => {
   const namespace = 'stp_v3_schedules';
 
+  const _token = () =>
+    typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+
+  const _apiSync = (method, path, body) => {
+    try {
+      const token = _token();
+      if (!token) return;
+      const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } };
+      if (body) opts.body = JSON.stringify(body);
+      fetch(path, opts).catch(e => console.warn('[SchedulerManager] API sync falhou:', e.message));
+    } catch (e) {
+      console.warn('[SchedulerManager] _apiSync error:', e.message);
+    }
+  };
+
+  const syncFromTurso = async () => {
+    try {
+      const token = _token();
+      if (!token) return false; // schedules GET também requer JWT
+      const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+      const res = await fetch('/api/schedules', { headers });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const remoteSchedules = data.schedules || [];
+      const localIdArr = StorageEngine.get(`${namespace}_index`, []);
+      const localIds   = new Set(localIdArr);
+
+      // Auto-migração: Turso vazio mas localStorage tem dados (JWT disponível)
+      if (remoteSchedules.length === 0 && localIdArr.length > 0) {
+        const localSchedules = localIdArr
+          .map(id => StorageEngine.get(`${namespace}_${id}`))
+          .filter(Boolean);
+        console.log('[SchedulerManager] Turso vazio — migrando ' + localSchedules.length + ' agendamento(s)...');
+        for (const s of localSchedules) {
+          try {
+            await fetch('/api/schedules', { method: 'POST', headers, body: JSON.stringify(s) });
+          } catch {}
+        }
+        console.log('[SchedulerManager] Migração concluída');
+        return false;
+      }
+
+      const remoteIds = new Set(remoteSchedules.map(s => s.id));
+      const changed = remoteSchedules.length !== localIds.size ||
+        [...remoteIds].some(id => !localIds.has(id));
+      if (!changed) return false;
+
+      const newIndex = [];
+      remoteSchedules.forEach(s => {
+        StorageEngine.set(`${namespace}_${s.id}`, s);
+        newIndex.push(s.id);
+      });
+      StorageEngine.set(`${namespace}_index`, newIndex);
+      console.log('[SchedulerManager] ' + remoteSchedules.length + ' agendamento(s) sincronizados do Turso');
+      return true;
+    } catch (e) {
+      console.warn('[SchedulerManager] syncFromTurso falhou:', e.message);
+      return false;
+    }
+  };
+
   /**
    * Schema de agendamento:
    * {
@@ -75,6 +136,7 @@ const SchedulerManager = (() => {
 
     StorageEngine.set(`${namespace}_${schedule.id}`, schedule);
     _updateIndex(schedule.id);
+    _apiSync('POST', '/api/schedules', schedule);
     return schedule;
   };
 
@@ -130,6 +192,7 @@ const SchedulerManager = (() => {
     }
 
     StorageEngine.set(`${namespace}_${scheduleId}`, updated);
+    _apiSync('PUT', '/api/schedules?id=' + scheduleId, updated);
     return updated;
   };
 
@@ -140,6 +203,7 @@ const SchedulerManager = (() => {
     StorageEngine.remove(`${namespace}_${scheduleId}`);
     const ids = StorageEngine.get(`${namespace}_index`, []);
     StorageEngine.set(`${namespace}_index`, ids.filter(id => id !== scheduleId));
+    _apiSync('DELETE', '/api/schedules?id=' + scheduleId);
   };
 
   /**
@@ -148,15 +212,18 @@ const SchedulerManager = (() => {
   const setActive = (scheduleId, ativo) => {
     const schedule = getById(scheduleId);
     if (!schedule) throw new Error('Agendamento não encontrado');
-    
+
     const updated = { ...schedule, ativo };
     if (ativo) {
       updated.proximaExecucao = schedule.agendamento
         ? _calculateNextExecutionFromWindow(updated)
         : _calculateNextExecutionFromCron(updated.cron);
     }
-    
+
     StorageEngine.set(`${namespace}_${scheduleId}`, updated);
+    _apiSync('PATCH', '/api/schedules?id=' + scheduleId, {
+      action: 'setAtivo', ativo, proximaExecucao: updated.proximaExecucao
+    });
     return updated;
   };
 
@@ -181,6 +248,11 @@ const SchedulerManager = (() => {
     };
 
     StorageEngine.set(`${namespace}_${scheduleId}`, updated);
+    _apiSync('PATCH', '/api/schedules?id=' + scheduleId, {
+      action: 'recordExecution',
+      ultimaExecucao: updated.ultimaExecucao,
+      proximaExecucao: updated.proximaExecucao
+    });
   };
 
   /**
@@ -349,6 +421,7 @@ const SchedulerManager = (() => {
     setActive,
     recordExecution,
     getDue,
-    count
+    count,
+    syncFromTurso
   };
 })();

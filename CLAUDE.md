@@ -50,6 +50,8 @@ Browser SPA → localStorage (StorageEngine)  ← all entities except results
 
 All SOAP requests go through `/api/proxy.js` to bypass CORS. The proxy accepts `{targetUrl, headers, payload, timeoutMs}` and returns `{success, statusCode, duration, errorDetail, responseBody}`. API functions use ESM (`export default async function handler(req, res)`).
 
+**Shared API module `api/_db.js`** exports: `getDb()` (Turso client), `sha256(str)`, `signJWT(payload)`, `verifyJWT(token)`, `getAuthPayload(req)` (extracts JWT from `Authorization: Bearer`), and `initSchema(db)` (idempotent `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` migrations). All handlers import from this file.
+
 ### Window Globals Reference
 
 Each module registers itself on `window`. These are the actual global names:
@@ -200,32 +202,52 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/app.js` | v=12 |
-| `assets/js/ui/renderer.js` | v=19 |
-| `assets/js/ui/login-screen.js` | v=11 |
+| `assets/js/app.js` | v=15 |
+| `assets/js/ui/renderer.js` | v=24 |
+| `assets/js/ui/login-screen.js` | v=18 |
 | `assets/js/features/scheduler.js` | v=10 |
-| `assets/js/storage/schedules.js` | v=10 |
-| `assets/js/storage/results.js` | v=13 |
-| `assets/js/storage/users.js` | v=10 |
+| `assets/js/storage/schedules.js` | v=13 |
+| `assets/js/storage/results.js` | v=14 |
+| `assets/js/storage/users.js` | v=14 |
+| `assets/js/storage/profiles.js` | v=10 |
+| `assets/js/storage/groups.js` | v=12 |
+| `assets/js/storage/methods.js` | v=12 |
 | `assets/js/reports/reports.js` | v=20 |
-| `assets/js/auth/session.js` | v=12 |
+| `assets/js/auth/session.js` | v=14 |
 | All other JS/CSS | v=9 |
 
-## Turso DB Migration (concluída)
+## Turso DB — Entidades sincronizadas
 
-The project is migrating **Results + Users** to a centralized Turso (libSQL/SQLite) database so multiple machines/users can share data. The database is `libsql://speedtestdb-awsof.aws-us-east-1.turso.io`.
+Todas as entidades abaixo são persistidas no Turso (libSQL/SQLite) em `libsql://speedtestdb-awsof.aws-us-east-1.turso.io`:
 
-**Architecture after migration:**
-- New API functions in `api/` handle CRUD for `users` and `results` tables in Turso
-- `UsersManager` loads from Turso on `init()`, operates in-memory, syncs writes back
-- `ResultsManager` syncs reads from Turso on startup; writes go to IndexedDB immediately + Turso async
-- Auth becomes server-side: `POST /api/auth/login` returns a JWT; `SessionManager` stores and passes it as `Authorization: Bearer <token>` on all API calls
-- Passwords remain SHA-256 hashed (client hashes, server stores and compares the hash)
-- Other entities (profiles, groups, schedules, scenarios) remain in localStorage for now
+| Entidade | Tabela | API | Manager | Sync |
+|----------|--------|-----|---------|------|
+| Usuários | `users` | `api/users.js`, `api/users/[id].js` | `UsersManager` | `init()` no boot + ao navegar para aba Usuários |
+| Resultados | `results` | `api/results.js` | `ResultsManager` | `syncFromTurso()` no boot |
+| Grupos | `groups` | `api/groups.js`, `api/groups/[id].js` | `GroupsManager` | ao navegar para aba Grupos |
+| Perfis | `profiles` | `api/profiles.js` | `ProfilesManager` | ao navegar para aba Perfis |
+| Métodos SOAP | `methods` | `api/methods.js`, `api/methods/[id].js` | `MethodsManager` | ao navegar para aba Métodos |
+| Agendamentos | `schedules` | `api/schedules.js`, `api/schedules/[id].js` | `SchedulerManager` | ao navegar para aba Agendamentos |
 
-**Arquivos adicionados:** `api/db.js` (Turso client + JWT), `api/login.js`, `api/results.js`, `api/users.js`, `api/users/[id].js`
+**Cenários** permanecem apenas em localStorage (sem Turso).
 
-**Comportamento do sync:** `syncFromTurso()` é chamado uma vez no login. Não há polling periódico — resultados de outros browsers só aparecem após reload da página.
+**Comportamento do sync:** Cada manager tem `syncFromTurso()`. O `_navigate()` do renderer dispara o sync ao mudar de aba — renderiza com dados locais imediatamente, depois re-renderiza se Turso trouxer novidades. Não há polling periódico.
+
+**`requestPayload` e `responseBody` NÃO são armazenados no Turso** — esses campos ficam apenas no IndexedDB local (muito grandes para sync). `_rowToResult()` em `api/results.js` sempre retorna `null` para esses campos.
+
+**Auth:** `POST /api/login` retorna JWT (7 dias); `SessionManager.getToken()` injeta em todas as chamadas autenticadas como `Authorization: Bearer <token>`. Fallback de emergência: env vars `LOGIN_USUARIO`/`LOGIN_SENHA` — usadas quando Turso está indisponível ou para auto-corrigir hash divergente (modo `env-sync`).
+
+**Não-admins** só podem alterar a própria `senhaHash`/`senhaTemporaria` via `PUT /api/users?id=`. Qualquer outro campo retorna 403.
+
+**Senha temporária:** admin pode marcar `senhaTemporaria: true` ao criar/resetar usuário. No boot, se `session.senhaTemporaria === true`, `LoginScreenManager.renderForcePasswordChange()` é exibida antes do app carregar. A troca chama `POST /api/users` com `{ _selfChange: true, userId, senhaHash }` — não exige JWT, mas valida que o usuário realmente tem `senhaTemporaria=1` no Turso.
+
+**Migração em lote:** `POST /api/users` com `{ _migrate: true, users: [...] }` importa usuários do localStorage para o Turso — só permitido quando a tabela está vazia.
+
+**`PATCH /api/schedules?id=`** aceita ações rápidas sem reenviar o objeto completo:
+- `{ action: 'setAtivo', ativo: bool, proximaExecucao?: ISO }` — liga/desliga
+- `{ action: 'recordExecution', ultimaExecucao: ISO, proximaExecucao: ISO }` — pós-execução
+
+**Campos de usuário:** `senhaTemporaria INTEGER DEFAULT 0`, `inativacaoTipo TEXT` (`'temporaria'|'definitiva'`), `inativoAte TEXT` (data ISO p/ inativação temporária). Adicionados via `ALTER TABLE` em `initSchema()` (migração idempotente).
 
 ## Documentation
 

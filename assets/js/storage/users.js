@@ -39,23 +39,30 @@ const UsersManager = (() => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       const tursoUsers = data.users || [];
+      const localUsers = StorageEngine.get(STORE_KEY, []);
+
       if (tursoUsers.length > 0) {
-        StorageEngine.set(STORE_KEY, tursoUsers);
+        // Preservar senhaHash local — API não retorna por segurança
+        const localHashes = {};
+        localUsers.forEach(u => { if (u.senhaHash) localHashes[u.id] = u.senhaHash; });
+        const merged = tursoUsers.map(u => ({ ...u, senhaHash: localHashes[u.id] || undefined }));
+        StorageEngine.set(STORE_KEY, merged);
         console.log('[UsersManager] ' + tursoUsers.length + ' usuario(s) carregados do Turso');
-      } else {
-        const localUsers = StorageEngine.get(STORE_KEY, []);
-        if (localUsers.length > 0) {
-          console.log('[UsersManager] Turso vazio - migrando ' + localUsers.length + ' usuario(s)...');
-          const migrRes = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ _migrate: true, users: localUsers })
-          });
-          if (migrRes.ok) {
-            const migrData = await migrRes.json();
-            console.log('[UsersManager] Migracao concluida:', migrData.migrated, 'usuario(s)');
-            StorageEngine.set(STORE_KEY, migrData.users || localUsers);
-          }
+      } else if (localUsers.length > 0) {
+        console.log('[UsersManager] Turso vazio - migrando ' + localUsers.length + ' usuario(s)...');
+        const migrRes = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ _migrate: true, users: localUsers })
+        });
+        if (migrRes.ok) {
+          const migrData = await migrRes.json();
+          console.log('[UsersManager] Migracao concluida:', migrData.migrated, 'usuario(s)');
+          // merged mantém hashes locais após migração
+          const localHashes = {};
+          localUsers.forEach(u => { if (u.senhaHash) localHashes[u.id] = u.senhaHash; });
+          const migrated = (migrData.users || localUsers).map(u => ({ ...u, senhaHash: localHashes[u.id] || u.senhaHash }));
+          StorageEngine.set(STORE_KEY, migrated);
         }
       }
     } catch (e) {
@@ -72,7 +79,7 @@ const UsersManager = (() => {
   const getByEmail = (email) => list().find(u => u.email === email) || null;
 
   const create = async (userData) => {
-    const { nome, email, usuario, senha, nivel } = userData;
+    const { nome, email, usuario, senha, nivel, senhaTemporaria = false } = userData;
     if (!nome || !email || !usuario || !senha || !nivel) {
       console.error('[UsersManager] Campos obrigatorios faltando'); return null;
     }
@@ -85,7 +92,8 @@ const UsersManager = (() => {
       const newUser = {
         id: _generateUUID(), nome: nome.trim(),
         email: email.trim().toLowerCase(), usuario: usuario.trim().toLowerCase(),
-        senhaHash, nivel, ativo: true, criadoEm: new Date().toISOString()
+        senhaHash, nivel, ativo: true, senhaTemporaria: !!senhaTemporaria,
+        criadoEm: new Date().toISOString()
       };
       const users = list(); users.push(newUser); StorageEngine.set(STORE_KEY, users);
       _apiSync('POST', '/api/users', newUser);
@@ -120,13 +128,39 @@ const UsersManager = (() => {
       }
       const updatedUser = { ...user, ...updates };
       users[userIndex] = updatedUser; StorageEngine.set(STORE_KEY, users);
-      _apiSync('PUT', '/api/users/' + id, updates);
+      _apiSync('PUT', '/api/users?id=' + id, updates);
       const { senhaHash: _, ...userWithoutHash } = updatedUser;
       return userWithoutHash;
     } catch (error) { console.error('[UsersManager] Erro ao atualizar:', error); return null; }
   };
 
-  const setActive = (id, ativo) => update(id, { ativo });
+  const setActive = (id, ativo, opts = {}) =>
+    update(id, { ativo, ...opts });
+
+  const syncFromTurso = async () => {
+    try {
+      const res = await fetch('/api/users');
+      if (!res.ok) return false;
+      const data = await res.json();
+      const remote = data.users || [];
+      const local = StorageEngine.get(STORE_KEY, []);
+
+      const remoteIds = remote.map(u => u.id).sort().join();
+      const localIds  = local.map(u => u.id).sort().join();
+      if (remoteIds === localIds && remote.length === local.length) return false;
+
+      // API não retorna senhaHash por segurança — preservar hash local
+      const localHashes = {};
+      local.forEach(u => { if (u.senhaHash) localHashes[u.id] = u.senhaHash; });
+      const merged = remote.map(u => ({ ...u, senhaHash: localHashes[u.id] || undefined }));
+      StorageEngine.set(STORE_KEY, merged);
+      console.log('[UsersManager] ' + remote.length + ' usuário(s) sincronizados do Turso');
+      return true;
+    } catch (e) {
+      console.warn('[UsersManager] syncFromTurso falhou:', e.message);
+      return false;
+    }
+  };
 
   const delete_ = (id) => {
     try {
@@ -134,7 +168,7 @@ const UsersManager = (() => {
       const filtered = users.filter(u => u.id !== id);
       if (filtered.length === users.length) return false;
       StorageEngine.set(STORE_KEY, filtered);
-      _apiSync('DELETE', '/api/users/' + id);
+      _apiSync('DELETE', '/api/users?id=' + id);
       return true;
     } catch (error) { console.error('[UsersManager] Erro ao deletar:', error); return false; }
   };
@@ -144,6 +178,6 @@ const UsersManager = (() => {
 
   return {
     init, list, getById, getByUsername, getByEmail,
-    create, validate, update, setActive, delete_, isEmpty, count
+    create, validate, update, setActive, delete_, isEmpty, count, syncFromTurso
   };
 })();

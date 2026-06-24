@@ -64,9 +64,13 @@ const RunnerEngine = (() => {
       timeoutHandle = setTimeout(() => controller.abort(), timeoutMs + 10000);
 
       // Roteamento via proxy (evita CORS direto ao endpoint SOAP)
+      const token = SessionManager.getToken();
       const proxyResponse = await fetch('/api/proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ targetUrl: profile.url, headers: headersObj, payload, timeoutMs }),
         signal: controller.signal
       });
