@@ -1840,6 +1840,7 @@ const Renderer = (() => {
                   <td>${u.criadoEm ? new Date(u.criadoEm).toLocaleString('pt-BR') : '—'}</td>
                   <td style="display:flex;gap:4px;flex-wrap:wrap;">
                     ${canManage && u.id !== currentId ? `
+                      <button class="button secondary small" type="button" data-action="edit-user" data-user-id="${u.id}">Editar</button>
                       ${u.ativo
                         ? `<button class="button secondary small" type="button" data-action="deactivate-user" data-user-id="${u.id}">Desativar</button>`
                         : `<button class="button secondary small" type="button" data-action="activate-user" data-user-id="${u.id}">Reativar</button>`
@@ -1894,6 +1895,66 @@ const Renderer = (() => {
       </div>
     </form>
   `;
+
+  const _buildEditUserModalBody = (user) => `
+    <form id="user-edit-form">
+      <div class="form-grid">
+        <label class="field">
+          Nome completo
+          <input id="edit-user-nome" type="text" value="${UtilsEngine.escapeXML(user.nome || '')}" />
+        </label>
+        <label class="field">
+          Email
+          <input id="edit-user-email" type="email" value="${UtilsEngine.escapeXML(user.email || '')}" />
+        </label>
+        <label class="field">
+          Usuário (login)
+          <input id="edit-user-usuario" type="text" value="${UtilsEngine.escapeXML(user.usuario || '')}" />
+        </label>
+        <label class="field">
+          Nível
+          <select id="edit-user-nivel">
+            <option value="operador"     ${user.nivel === 'operador'     ? 'selected' : ''}>Operador</option>
+            <option value="visualizador" ${user.nivel === 'visualizador' ? 'selected' : ''}>Visualizador</option>
+            <option value="admin"        ${user.nivel === 'admin'        ? 'selected' : ''}>Administrador</option>
+          </select>
+        </label>
+      </div>
+    </form>
+  `;
+
+  const _showEditUserModal = (userId) => {
+    const user = UsersManager.getById(userId);
+    if (!user) return;
+    ModalManager.open({
+      title: `Editar Usuário — ${user.nome}`,
+      body: _buildEditUserModalBody(user),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (e) => { e.preventDefault(); _submitEditUser(userId); };
+    }
+  };
+
+  const _submitEditUser = async (userId) => {
+    const nome    = document.getElementById('edit-user-nome')?.value.trim();
+    const email   = document.getElementById('edit-user-email')?.value.trim();
+    const usuario = document.getElementById('edit-user-usuario')?.value.trim();
+    const nivel   = document.getElementById('edit-user-nivel')?.value;
+
+    if (!nome || !email || !usuario || !nivel)
+      return NotificationsManager.danger('Preencha todos os campos');
+
+    const updated = await UsersManager.update(userId, { nome, email, usuario, nivel });
+    if (!updated) return NotificationsManager.danger('Falha ao atualizar. Verifique se usuário ou email já existem.');
+
+    ModalManager.close();
+    NotificationsManager.success('Usuário atualizado com sucesso.');
+    _renderMainContent('users');
+    _attachEventListeners();
+  };
 
   const _buildResetPasswordModalBody = (userId) => `
     <form id="reset-password-form" data-user-id="${userId}">
@@ -2105,14 +2166,39 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
-  const _exportData = () => {
+  const _exportData = async () => {
+    NotificationsManager.info('Buscando dados do banco para exportação...');
+    const token = SessionManager.getToken?.();
+    const authHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+    const safeFetch = async (url) => {
+      try {
+        const res = await fetch(url, { headers: authHeaders });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    };
+
+    const [methodsData, profilesData, groupsData, usersData] = await Promise.all([
+      safeFetch('/api/methods'),
+      safeFetch('/api/profiles'),
+      safeFetch('/api/groups'),
+      safeFetch('/api/users')
+    ]);
+
+    // Preservar senhaHash local (API não retorna por segurança)
+    const localUsers = UsersManager.list();
+    const localHashes = {};
+    localUsers.forEach(u => { if (u.senhaHash) localHashes[u.id] = u.senhaHash; });
+    const remoteUsers = (usersData?.users || localUsers).map(u => ({ ...u, senhaHash: localHashes[u.id] || u.senhaHash }));
+
     const bundle = {
       version: 1,
       exportadoEm: new Date().toISOString(),
-      methods:  MethodsManager.list(),
-      profiles: ProfilesManager.list(),
-      groups:   GroupsManager.list(),
-      users:    UsersManager.list()
+      methods:  methodsData?.methods   || MethodsManager.list(),
+      profiles: profilesData?.profiles || ProfilesManager.list(),
+      groups:   groupsData?.groups     || GroupsManager.list(),
+      users:    remoteUsers
     };
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2124,23 +2210,54 @@ const Renderer = (() => {
     AuditLogManager.record('dados:exportar', 'backup', `methods:${bundle.methods.length} profiles:${bundle.profiles.length} groups:${bundle.groups.length} users:${bundle.users.length}`);
   };
 
-  const _importData = (bundle, mode) => {
+  const _importData = async (bundle, mode) => {
+    const token = SessionManager.getToken?.();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const apiPost = (url, body) => fetch(url, { method: 'POST', headers, body: JSON.stringify(body) }).catch(() => {});
+    const apiDel  = (url) => fetch(url, { method: 'DELETE', headers }).catch(() => {});
+
+    NotificationsManager.info('Importando dados...');
+
     if (mode === 'replace') {
+      // Remover entidades existentes do Turso antes de inserir novas
+      await Promise.all([
+        ...MethodsManager.list().map(m  => apiDel('/api/methods?id='  + m.id)),
+        ...ProfilesManager.list().map(p => apiDel('/api/profiles?id=' + p.id)),
+        ...GroupsManager.list().map(g   => apiDel('/api/groups?id='   + g.id)),
+      ]);
+      // Escrever no localStorage
       StorageEngine.set('soap_methods', bundle.methods  || []);
       StorageEngine.set('profiles',     bundle.profiles || []);
       StorageEngine.set('groups',       bundle.groups   || []);
       StorageEngine.set('users',        bundle.users    || []);
+      // Inserir novas entidades no Turso
+      await Promise.all([
+        ...(bundle.methods  || []).map(m => apiPost('/api/methods',  m)),
+        ...(bundle.profiles || []).map(p => apiPost('/api/profiles', p)),
+        ...(bundle.groups   || []).map(g => apiPost('/api/groups',   g)),
+        ...(bundle.users    || []).map(u => apiPost('/api/users',    u)),
+      ]);
     } else {
-      const merge = (storeKey, incoming) => {
+      // Mesclar: adicionar apenas entidades não existentes por ID
+      const mergeLocal = (storeKey, incoming) => {
         const current = StorageEngine.get(storeKey, []);
         const existingIds = new Set(current.map(e => e.id));
         const toAdd = (incoming || []).filter(e => !existingIds.has(e.id));
         if (toAdd.length > 0) StorageEngine.set(storeKey, [...current, ...toAdd]);
+        return toAdd;
       };
-      merge('soap_methods', bundle.methods);
-      merge('profiles',     bundle.profiles);
-      merge('groups',       bundle.groups);
-      merge('users',        bundle.users);
+      const newMethods  = mergeLocal('soap_methods', bundle.methods);
+      const newProfiles = mergeLocal('profiles',     bundle.profiles);
+      const newGroups   = mergeLocal('groups',       bundle.groups);
+      const newUsers    = mergeLocal('users',        bundle.users);
+      await Promise.all([
+        ...newMethods.map(m  => apiPost('/api/methods',  m)),
+        ...newProfiles.map(p => apiPost('/api/profiles', p)),
+        ...newGroups.map(g   => apiPost('/api/groups',   g)),
+        ...newUsers.map(u    => apiPost('/api/users',    u)),
+      ]);
     }
     AuditLogManager.record('dados:importar', 'backup', `modo:${mode} methods:${(bundle.methods||[]).length} profiles:${(bundle.profiles||[]).length} groups:${(bundle.groups||[]).length} users:${(bundle.users||[]).length}`);
     NotificationsManager.success('Importação concluída. A página será recarregada.');
@@ -2975,7 +3092,10 @@ const Renderer = (() => {
       });
     }
 
-    document.getElementById('btn-export-data')?.addEventListener('click', _exportData);
+    document.getElementById('btn-export-data')?.addEventListener('click', async () => {
+      try { await _exportData(); }
+      catch (e) { NotificationsManager.danger('Erro ao exportar: ' + e.message); }
+    });
 
     let _importBundle = null;
     const importFileInput = document.getElementById('input-import-file');
@@ -2998,11 +3118,11 @@ const Renderer = (() => {
       });
     }
 
-    document.getElementById('btn-import-merge')?.addEventListener('click', () => {
-      if (_importBundle) _importData(_importBundle, 'merge');
+    document.getElementById('btn-import-merge')?.addEventListener('click', async () => {
+      if (_importBundle) await _importData(_importBundle, 'merge');
     });
-    document.getElementById('btn-import-replace')?.addEventListener('click', () => {
-      if (_importBundle) _importData(_importBundle, 'replace');
+    document.getElementById('btn-import-replace')?.addEventListener('click', async () => {
+      if (_importBundle) await _importData(_importBundle, 'replace');
     });
     document.getElementById('btn-import-cancel')?.addEventListener('click', () => {
       _importBundle = null;
@@ -3619,6 +3739,10 @@ const Renderer = (() => {
     }
 
     // --- Ações de Usuário ---
+    document.querySelectorAll('[data-action="edit-user"]').forEach(button => {
+      button.addEventListener('click', () => _showEditUserModal(button.dataset.userId));
+    });
+
     document.querySelectorAll('[data-action="deactivate-user"]').forEach(button => {
       button.addEventListener('click', () => {
         _showDeactivateModal(button.dataset.userId);
