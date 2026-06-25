@@ -84,6 +84,7 @@ const AppBootstrap = (() => {
     // Sincronizar todas as entidades Turso em background (migra localStorage se Turso vazio)
     ResultsManager.syncFromTurso();
     GroupsManager.syncFromTurso?.().catch(() => {});
+    EndpointsManager.syncFromTurso?.().catch(() => {});
     MethodsManager.syncFromTurso?.().catch(() => {});
     SchedulerManager.syncFromTurso?.().catch(() => {});
     ProfilesManager.syncFromTurso?.().catch(() => {});
@@ -199,6 +200,7 @@ const AppBootstrap = (() => {
     const required = [
       'StorageEngine', 'UsersManager', 'ProfilesManager', 'GroupsManager',
       'ScenariosManager', 'ResultsManager', 'SchedulerManager', 'AuditLogManager',
+      'EndpointsManager',
       'SessionManager', 'RBACManager',
       'LoginScreenManager', 'SidebarManager', 'NotificationsManager', 'ModalManager', 'Renderer',
       'ConfigEngine', 'XMLEngine', 'UtilsEngine', 'RunnerEngine',

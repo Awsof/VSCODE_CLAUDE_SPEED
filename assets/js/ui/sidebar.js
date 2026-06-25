@@ -12,6 +12,7 @@ const SidebarManager = (() => {
     { id: 'groups',    label: 'Grupos',        icon: '🗂️', permission: 'groups:list' },
     { id: 'schedules', label: 'Agendamentos',  icon: '⏰', permission: 'scheduler:list' },
     { category: 'Ajustes' },
+    { id: 'endpoints', label: 'Endpoints',     icon: '🔗', permission: 'profiles:list' },
     { id: 'methods',   label: 'Métodos SOAP',  icon: '⚡', permission: 'profiles:list' },
     { id: 'users',     label: 'Usuários',      icon: '👥', permission: 'users:manage' },
     { id: 'settings',  label: 'Configurações', icon: '⚙️', permission: 'settings:view' }

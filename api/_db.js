@@ -154,4 +154,14 @@ export const initSchema = async (db) => {
     criadoEm TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )`);
+  try { await db.execute(`ALTER TABLE profiles ADD COLUMN endpointId TEXT`); } catch {}
+  await db.execute(`CREATE TABLE IF NOT EXISTS endpoints (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    url TEXT NOT NULL,
+    descricao TEXT,
+    criadoPor TEXT,
+    criadoEm TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+  )`);
 };

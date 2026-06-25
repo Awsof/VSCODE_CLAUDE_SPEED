@@ -14,6 +14,7 @@ const Renderer = (() => {
 
   const _renderPage = (tabId) => {
     switch (tabId) {
+      case 'endpoints': return _renderEndpoints();
       case 'methods': return _renderMethods();
       case 'profiles': return _renderTests();
       case 'groups': return _renderGroups();
@@ -109,6 +110,120 @@ const Renderer = (() => {
     `;
   };
 
+  const _renderEndpoints = () => {
+    const endpoints = EndpointsManager.list();
+    const canEdit   = RBACManager.canCurrent('methods:create');
+    const canDelete = RBACManager.canCurrent('methods:delete');
+    return `
+      <section class="section-card fade-in-up">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Endpoints</h2>
+            <p class="section-subtitle">Catálogo de URLs SOAP reutilizáveis. Selecione um endpoint ao criar um teste em vez de digitar a URL manualmente.</p>
+          </div>
+          ${canEdit ? '<button class="button primary" type="button" id="btn-new-endpoint">Novo Endpoint</button>' : ''}
+        </div>
+        <div class="card-list">
+          ${endpoints.length ? endpoints.map(ep => `
+            <div class="card-list-item" style="border-left:4px solid #0F9B94;">
+              <div class="card-list-item-title">${ep.nome}</div>
+              <div class="card-list-item-meta" style="font-family:var(--font-mono);font-size:0.82em;word-break:break-all;">${ep.url}</div>
+              ${ep.descricao ? `<div class="card-list-item-meta" style="font-size:0.8em;color:var(--text-muted);">${ep.descricao}</div>` : ''}
+              <div class="card-list-item-actions">
+                ${canEdit   ? `<button class="button secondary small" data-action="edit-endpoint"   data-endpoint-id="${ep.id}">Editar</button>` : ''}
+                ${canDelete ? `<button class="button danger small"    data-action="delete-endpoint" data-endpoint-id="${ep.id}">Excluir</button>` : ''}
+              </div>
+            </div>
+          `).join('') : '<div class="empty-state">Nenhum endpoint cadastrado. Clique em "Novo Endpoint" para começar.</div>'}
+        </div>
+      </section>
+    `;
+  };
+
+  const _buildEndpointModalBody = (ep = null) => {
+    const v = (f, fb = '') => ep ? (ep[f] ?? fb) : fb;
+    return `
+      <form id="endpoint-creation-form">
+        <div class="form-grid">
+          <label class="field" style="grid-column:1/-1;">
+            Nome
+            <input id="endpoint-nome" type="text" placeholder="Ex: Produção MB" value="${v('nome')}" />
+          </label>
+          <label class="field" style="grid-column:1/-1;">
+            URL SOAP
+            <input id="endpoint-url" type="url" placeholder="https://wsmb.diagnosticosdobrasil.com.br/..." value="${v('url')}" />
+          </label>
+          <label class="field" style="grid-column:1/-1;">
+            Descrição
+            <input id="endpoint-descricao" type="text" placeholder="Descrição opcional" value="${v('descricao')}" />
+          </label>
+        </div>
+      </form>
+    `;
+  };
+
+  const _showCreateEndpointModal = () => {
+    ModalManager.open({
+      title: 'Novo Endpoint',
+      body: _buildEndpointModalBody(),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitEndpointForm(null);
+      };
+    }
+  };
+
+  const _showEditEndpointModal = (endpointId) => {
+    const ep = EndpointsManager.getById(endpointId);
+    if (!ep) return NotificationsManager.danger('Endpoint não encontrado');
+    ModalManager.open({
+      title: 'Editar Endpoint',
+      body: _buildEndpointModalBody(ep),
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    const confirmButton = document.getElementById('stp-modal-root-confirm');
+    if (confirmButton) {
+      confirmButton.onclick = (event) => {
+        event.preventDefault();
+        _submitEndpointForm(endpointId);
+      };
+    }
+  };
+
+  const _submitEndpointForm = (endpointId = null) => {
+    const nome     = document.getElementById('endpoint-nome')?.value.trim();
+    const url      = document.getElementById('endpoint-url')?.value.trim();
+    const descricao= document.getElementById('endpoint-descricao')?.value.trim() || '';
+    const currentUser = state.currentUser || SessionManager.getCurrentUser();
+    const criadoPor   = currentUser?.usuario || 'admin';
+
+    if (!nome) return NotificationsManager.danger('O nome do endpoint é obrigatório');
+    if (!url)  return NotificationsManager.danger('A URL do endpoint é obrigatória');
+
+    let result;
+    if (endpointId) {
+      result = EndpointsManager.update(endpointId, { nome, url, descricao });
+      if (!result) return NotificationsManager.danger('Falha ao atualizar endpoint.');
+      AuditLogManager.record('endpoint:editar', nome);
+      NotificationsManager.success('Endpoint atualizado com sucesso');
+    } else {
+      result = EndpointsManager.create({ nome, url, descricao, criadoPor });
+      if (!result) return NotificationsManager.danger('Falha ao criar endpoint.');
+      AuditLogManager.record('endpoint:criar', nome);
+      NotificationsManager.success('Endpoint criado com sucesso');
+    }
+
+    ModalManager.close();
+    _renderMainContent('endpoints');
+    _attachEventListeners();
+  };
+
   const _renderMethods = () => {
     const methods = MethodsManager.list();
     return `
@@ -153,10 +268,12 @@ const Renderer = (() => {
   };
 
   const _renderTests = () => {
-    const profiles = ProfilesManager.list();
-    const groups = GroupsManager.list();
-    const methods = MethodsManager.list();
-    const _getMethodName = (methodId) => { const m = methods.find(x => x.id === methodId); return m ? m.nome : null; };
+    const profiles   = ProfilesManager.list();
+    const groups     = GroupsManager.list();
+    const methods    = MethodsManager.list();
+    const endpoints  = EndpointsManager.list();
+    const _getMethodName   = (methodId)   => { const m = methods.find(x => x.id === methodId);   return m ? m.nome : null; };
+    const _getEndpointName = (endpointId) => { const e = endpoints.find(x => x.id === endpointId); return e ? e.nome : null; };
     const limits = RBACManager.getExecutionLimits();
     return `
       <section class="section-card fade-in-up">
@@ -178,11 +295,12 @@ const Renderer = (() => {
                   ${profile.nome}
                 </div>
                 <div class="card-list-item-meta">Código: ${profile.codigo} · ${profile.version || 'N/A'} · ${group?.nome || 'Sem grupo'}</div>
-                <div class="card-list-item-meta">URL: ${profile.url}</div>
-                <div class="card-list-item-meta">Método: ${_getMethodName(profile.methodId) ? `<span style="color:var(--primary,#003761);font-weight:500;">${_getMethodName(profile.methodId)}</span>` : '<span style="color:#DC2626;">⚠ sem método vinculado</span>'}</div>
-                <div class="card-list-item-meta" style="font-size:0.8em;">
-                  Código Apoiado: ${profile.codigoApoiado ? `<span style="color:var(--text-muted)">${profile.codigoApoiado}</span>` : '<span style="color:#DC2626">⚠ não configurado</span>'}
+                <div class="card-list-item-meta">
+                  Endpoint: ${_getEndpointName(profile.endpointId)
+                    ? `<span style="color:var(--primary,#003761);font-weight:500;">${_getEndpointName(profile.endpointId)}</span>`
+                    : `<span style="font-family:var(--font-mono);font-size:0.85em;color:var(--text-muted);">${profile.url || '—'}</span>`}
                 </div>
+                <div class="card-list-item-meta">Método: ${_getMethodName(profile.methodId) ? `<span style="color:var(--primary,#003761);font-weight:500;">${_getMethodName(profile.methodId)}</span>` : '<span style="color:#DC2626;">⚠ sem método vinculado</span>'}</div>
                 <div class="card-list-item-actions">
                   <button class="button secondary small" type="button" data-action="edit-profile" data-profile-id="${profile.id}">Editar</button>
                   <button class="button danger small" type="button" data-action="delete-profile" data-profile-id="${profile.id}">Excluir</button>
@@ -1024,10 +1142,7 @@ const Renderer = (() => {
   const _buildCustomFieldsHTML = (vars, profile) => {
     if (!vars || !vars.length) return '';
     const customVars = profile?.customVars || {};
-    const attendanceMode = profile?.attendanceMode || 'sequential';
-    const attendanceFixed = profile?.attendanceFixed || '';
 
-    const hasAtendimento = vars.some(v => v.type === 'atendimento');
     const customFields = vars.filter(v => v.type === 'custom' || v.type === 'atendimento_apoiado');
     const globalFields = vars.filter(v => v.type === 'global');
     const autoFields = vars.filter(v => v.type === 'execution_auto');
@@ -1056,41 +1171,6 @@ const Renderer = (() => {
       html += `</div>`;
     }
 
-    if (hasAtendimento) {
-      const seqChecked   = attendanceMode === 'sequential' ? 'checked' : '';
-      const randChecked  = attendanceMode === 'random'     ? 'checked' : '';
-      const fixedChecked = attendanceMode === 'fixed'      ? 'checked' : '';
-      const fixedDisplay = attendanceMode === 'fixed'      ? 'block' : 'none';
-      html += `
-      <div style="margin-bottom:12px;">
-        <label style="font-size:.85em;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
-          Modo de geração — NumeroAtendimento
-        </label>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
-            <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}
-              onchange="document.getElementById('attendance-fixed-row').style.display='none'">
-            Sequencial <span style="color:#9CA3AF;font-size:.85em;">(PRD20260625001…)</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
-            <input type="radio" name="attendance-mode" value="random" ${randChecked}
-              onchange="document.getElementById('attendance-fixed-row').style.display='none'">
-            Aleatório <span style="color:#9CA3AF;font-size:.85em;">(4 dígitos)</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
-            <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}
-              onchange="document.getElementById('attendance-fixed-row').style.display='block'">
-            Fixo
-          </label>
-        </div>
-        <div id="attendance-fixed-row" style="margin-top:8px;display:${fixedDisplay};">
-          <input id="attendance-fixed-value" type="text" placeholder="Digite o valor fixo do número de atendimento"
-            value="${UtilsEngine.escapeXML(attendanceFixed)}"
-            style="width:100%;max-width:320px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;" />
-        </div>
-      </div>`;
-    }
-
     customFields.forEach(f => {
       const val = UtilsEngine.escapeXML(customVars[f.name] || '');
       const typeLabel = f.type === 'atendimento_apoiado' ? 'apoiado' : 'custom';
@@ -1111,9 +1191,36 @@ const Renderer = (() => {
   };
 
   const _buildProfileModalBody = (profile = null) => {
-    const groups = GroupsManager.list();
-    const methods = MethodsManager.list();
+    const groups    = GroupsManager.list();
+    const methods   = MethodsManager.list();
+    const endpoints = EndpointsManager.list();
     const v = (field, fallback = '') => profile ? (profile[field] ?? fallback) : fallback;
+
+    const attendanceMode  = v('attendanceMode', 'sequential');
+    const attendanceFixed = v('attendanceFixed', '');
+    const seqChecked   = attendanceMode === 'sequential' ? 'checked' : '';
+    const fixedChecked = attendanceMode === 'fixed'      ? 'checked' : '';
+    const fixedDisplay = attendanceMode === 'fixed'      ? 'block'   : 'none';
+
+    // Endpoint dropdown or manual URL fallback
+    const endpointField = endpoints.length
+      ? `<label class="field" style="grid-column: 1 / -1;">
+          Endpoint SOAP
+          <select id="profile-endpoint-id">
+            <option value="">— Selecione um endpoint —</option>
+            ${endpoints.map(ep => `<option value="${ep.id}" ${profile?.endpointId === ep.id ? 'selected' : ''}>${ep.nome}</option>`).join('')}
+          </select>
+          <small id="profile-endpoint-url-preview"
+            style="font-family:var(--font-mono);font-size:0.8em;color:var(--text-muted);margin-top:4px;display:block;min-height:1.2em;">
+            ${profile?.url ? profile.url : ''}
+          </small>
+         </label>`
+      : `<label class="field" style="grid-column: 1 / -1;">
+          URL SOAP
+          <input id="profile-url-manual" type="url" placeholder="https://..." value="${v('url')}" />
+          <small class="field-note" style="color:#C49B3C;">Nenhum endpoint cadastrado. <a href="#" onclick="event.preventDefault();Renderer.renderTab('endpoints');">Acesse Endpoints</a> para cadastrar primeiro, ou digite a URL manualmente.</small>
+         </label>`;
+
     return `
       <form id="profile-creation-form">
         <div class="form-grid">
@@ -1125,20 +1232,7 @@ const Renderer = (() => {
             Código
             <input id="profile-code" type="text" placeholder="Ex: PRD" value="${v('codigo')}" />
           </label>
-          <label class="field" style="grid-column: 1 / -1;">
-            URL SOAP
-            <input id="profile-url" type="url" placeholder="https://..." value="${v('url')}" />
-          </label>
-          <label class="field">
-            Código Apoiado
-            <input id="profile-codigo-apoiado" type="text" placeholder="Ex: 12588" value="${v('codigoApoiado')}" />
-            <small class="field-note">Substitui {{CODIGO_APOIADO}} no template XML do método.</small>
-          </label>
-          <label class="field">
-            Senha de Integração
-            <input id="profile-codigo-senha" type="text" placeholder="Ex: hovaho23" value="${v('codigoSenha')}" />
-            <small class="field-note">Substitui {{CODIGO_SENHA}} no template XML do método.</small>
-          </label>
+          ${endpointField}
           <label class="field">
             Versão
             <input id="profile-version" type="text" placeholder="1.0" value="${v('version', '1.0')}" />
@@ -1153,6 +1247,27 @@ const Renderer = (() => {
               <option value="">Nenhum grupo</option>
               ${groups.map(g => `<option value="${g.id}" ${profile?.groupId === g.id ? 'selected' : ''}>${g.nome}</option>`).join('')}
             </select>
+          </label>
+          <label class="field" style="grid-column: 1 / -1;">
+            Modo — NumeroAtendimento
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
+                <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}
+                  onchange="document.getElementById('attendance-fixed-row').style.display='none'">
+                Sequencial <span style="color:#9CA3AF;font-size:.85em;">(PRD20260625001…)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
+                <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}
+                  onchange="document.getElementById('attendance-fixed-row').style.display='block'">
+                Fixo
+              </label>
+            </div>
+            <div id="attendance-fixed-row" style="margin-top:8px;display:${fixedDisplay};">
+              <input id="attendance-fixed-value" type="text"
+                placeholder="Valor fixo do número de atendimento"
+                value="${UtilsEngine.escapeXML(attendanceFixed)}"
+                style="width:100%;max-width:340px;" />
+            </div>
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Método SOAP vinculado
@@ -1183,6 +1298,18 @@ const Renderer = (() => {
     render();
   };
 
+  const _attachEndpointSelectListener = () => {
+    const sel     = document.getElementById('profile-endpoint-id');
+    const preview = document.getElementById('profile-endpoint-url-preview');
+    if (!sel || !preview) return;
+    const update = () => {
+      const ep = sel.value ? EndpointsManager.getById(sel.value) : null;
+      preview.textContent = ep ? ep.url : '';
+    };
+    sel.addEventListener('change', update);
+    update();
+  };
+
   const _showCreateProfileModal = () => {
     ModalManager.open({
       title: 'Criar Novo Teste',
@@ -1198,6 +1325,7 @@ const Renderer = (() => {
       };
     }
     _attachMethodCustomFieldsListener(null);
+    _attachEndpointSelectListener();
   };
 
   const _showEditProfileModal = (profileId) => {
@@ -1217,20 +1345,28 @@ const Renderer = (() => {
       };
     }
     _attachMethodCustomFieldsListener(profile);
+    _attachEndpointSelectListener();
   };
 
   const _submitProfileForm = (profileId = null) => {
-    const name = document.getElementById('profile-name')?.value.trim();
-    const code = document.getElementById('profile-code')?.value.trim();
-    const url = document.getElementById('profile-url')?.value.trim();
+    const name    = document.getElementById('profile-name')?.value.trim();
+    const code    = document.getElementById('profile-code')?.value.trim();
     const version = document.getElementById('profile-version')?.value.trim() || '1.0';
     const groupId = document.getElementById('profile-group-id')?.value || null;
-    const methodId = document.getElementById('profile-method-id')?.value || null;
-    const codigoApoiado = document.getElementById('profile-codigo-apoiado')?.value.trim() || null;
-    const codigoSenha = document.getElementById('profile-codigo-senha')?.value.trim() || null;
-    const color = document.getElementById('profile-color')?.value || '#0F9B94';
+    const methodId= document.getElementById('profile-method-id')?.value || null;
+    const color   = document.getElementById('profile-color')?.value || '#0F9B94';
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
-    const createdBy = currentUser?.usuario || 'admin';
+    const createdBy   = currentUser?.usuario || 'admin';
+
+    // Resolver URL: dropdown de endpoint ou fallback manual
+    const endpointSel = document.getElementById('profile-endpoint-id');
+    const endpointId  = endpointSel?.value || null;
+    let url;
+    if (endpointId) {
+      url = EndpointsManager.getById(endpointId)?.url || '';
+    } else {
+      url = (document.getElementById('profile-url-manual')?.value || '').trim();
+    }
 
     // Coletar campos customizados detectados pelo método
     const customVars = {};
@@ -1238,18 +1374,18 @@ const Renderer = (() => {
       const key = el.dataset.customVar;
       if (key) customVars[key] = el.value.trim();
     });
-    const attendanceMode = document.querySelector('[name="attendance-mode"]:checked')?.value || 'sequential';
+    const attendanceMode  = document.querySelector('[name="attendance-mode"]:checked')?.value || 'sequential';
     const attendanceFixed = document.getElementById('attendance-fixed-value')?.value.trim() || '';
 
     if (!name) return NotificationsManager.danger('O nome do perfil é obrigatório');
     if (!code) return NotificationsManager.danger('O código do perfil é obrigatório');
-    if (!url) return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
+    if (!url)  return NotificationsManager.danger('Selecione um endpoint ou informe a URL SOAP');
 
     let result;
     if (profileId) {
       result = ProfilesManager.update(profileId, {
         nome: name, codigo: code, url, version,
-        codigoApoiado, codigoSenha, cor: color, groupId, methodId,
+        endpointId, cor: color, groupId, methodId,
         customVars, attendanceMode, attendanceFixed
       });
       if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
@@ -1258,7 +1394,7 @@ const Renderer = (() => {
     } else {
       result = ProfilesManager.create({
         nome: name, codigo: code, url, version,
-        codigoApoiado, codigoSenha, cor: color, groupId, methodId,
+        endpointId, cor: color, groupId, methodId,
         customVars, attendanceMode, attendanceFixed,
         criadoPor: createdBy
       });
@@ -3316,14 +3452,6 @@ const Renderer = (() => {
               soapAction: method.soapAction
             };
 
-            const warnings = [];
-            if (method.payloadTemplate?.includes('{{CODIGO_APOIADO}}') && !profile.codigoApoiado)
-              warnings.push(`${profile.nome}: Código Apoiado não configurado`);
-            if (method.payloadTemplate?.includes('{{CODIGO_SENHA}}') && !profile.codigoSenha)
-              warnings.push(`${profile.nome}: Senha de Integração não configurada`);
-            if (warnings.length > 0)
-              NotificationsManager.warning(warnings.join(' · '));
-
             const results = await RunnerEngine.executeBatch([mergedProfile], {
               requestsPerProfile: requests,
               concurrency,
@@ -3389,6 +3517,36 @@ const Renderer = (() => {
         NotificationsManager.warning('Teste abortado');
       });
     }
+
+    // --- Endpoints ---
+    const newEndpointBtn = document.getElementById('btn-new-endpoint');
+    if (newEndpointBtn) {
+      newEndpointBtn.addEventListener('click', () => _showCreateEndpointModal());
+    }
+
+    document.querySelectorAll('[data-action="edit-endpoint"]').forEach(button => {
+      button.addEventListener('click', () => _showEditEndpointModal(button.dataset.endpointId));
+    });
+
+    document.querySelectorAll('[data-action="delete-endpoint"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const endpointId = button.dataset.endpointId;
+        ModalManager.confirm({
+          title: 'Excluir endpoint',
+          body: '<p>Deseja realmente excluir este endpoint? Perfis que o usam manterão a URL salva, mas não terão mais o vínculo.</p>',
+          confirmText: 'Excluir',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            const epName = EndpointsManager.getById(endpointId)?.nome || endpointId;
+            EndpointsManager.delete_(endpointId);
+            AuditLogManager.record('endpoint:excluir', epName);
+            NotificationsManager.warning('Endpoint excluído');
+            _renderMainContent('endpoints');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
 
     // --- Métodos SOAP ---
     const newMethodBtn = document.getElementById('btn-new-method');
@@ -3480,6 +3638,7 @@ const Renderer = (() => {
     try {
       if      (tabId === 'users')                         changed = !!(await UsersManager.syncFromTurso?.());
       else if (tabId === 'groups')                        changed = !!(await GroupsManager.syncFromTurso?.());
+      else if (tabId === 'endpoints')                     changed = !!(await EndpointsManager.syncFromTurso?.());
       else if (tabId === 'methods')                       changed = !!(await MethodsManager.syncFromTurso?.());
       else if (tabId === 'schedules')                     changed = !!(await SchedulerManager.syncFromTurso?.());
       else if (tabId === 'profiles')                      changed = !!(await ProfilesManager.syncFromTurso?.());
