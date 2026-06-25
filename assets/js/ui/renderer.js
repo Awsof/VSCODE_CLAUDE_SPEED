@@ -1172,18 +1172,34 @@ const Renderer = (() => {
     }
 
     customFields.forEach(f => {
-      const val = UtilsEngine.escapeXML(customVars[f.name] || '');
-      const typeLabel = f.type === 'atendimento_apoiado' ? 'apoiado' : 'custom';
-      html += `
-      <label style="display:block;margin-bottom:10px;font-size:.85em;font-weight:600;color:#374151;">
-        ${UtilsEngine.escapeXML(f.name)}
-        <span style="font-weight:400;color:#9CA3AF;margin-left:4px;">[${typeLabel}]</span>
-        <input type="text" data-custom-var="${UtilsEngine.escapeXML(f.name)}"
-          placeholder="Valor para {{${UtilsEngine.escapeXML(f.name)}}}"
-          value="${val}"
-          style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;" />
-        <span style="font-size:.75em;color:#9CA3AF;">Substitui {{${UtilsEngine.escapeXML(f.name)}}} no XML do método</span>
-      </label>`;
+      if (f.type === 'atendimento_apoiado') {
+        const currentMode = document.querySelector('input[name="attendance-mode"]:checked')?.value || 'sequential';
+        const isSeq = currentMode === 'sequential';
+        const val = isSeq ? '' : UtilsEngine.escapeXML(profile?.attendanceFixed || customVars[f.name] || '');
+        html += `
+        <label style="display:block;margin-bottom:10px;font-size:.85em;font-weight:600;color:#374151;">
+          ${UtilsEngine.escapeXML(f.name)}
+          <span style="font-weight:400;color:#9CA3AF;margin-left:4px;">[apoiado]</span>
+          <input type="text" data-custom-var="${UtilsEngine.escapeXML(f.name)}"
+            placeholder="${isSeq ? 'Gerado automaticamente (sequencial)' : 'Valor fixo do número de atendimento'}"
+            value="${val}"
+            ${isSeq ? 'disabled' : ''}
+            style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;${isSeq ? 'opacity:.5;background:#F3F4F6;' : ''}" />
+          <span style="font-size:.75em;color:#9CA3AF;">Controlado pelo modo Sequencial/Fixo acima</span>
+        </label>`;
+      } else {
+        const val = UtilsEngine.escapeXML(customVars[f.name] || '');
+        html += `
+        <label style="display:block;margin-bottom:10px;font-size:.85em;font-weight:600;color:#374151;">
+          ${UtilsEngine.escapeXML(f.name)}
+          <span style="font-weight:400;color:#9CA3AF;margin-left:4px;">[custom]</span>
+          <input type="text" data-custom-var="${UtilsEngine.escapeXML(f.name)}"
+            placeholder="Valor para {{${UtilsEngine.escapeXML(f.name)}}}"
+            value="${val}"
+            style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;" />
+          <span style="font-size:.75em;color:#9CA3AF;">Substitui {{${UtilsEngine.escapeXML(f.name)}}} no XML do método</span>
+        </label>`;
+      }
     });
 
     html += `</div>`;
@@ -1196,11 +1212,9 @@ const Renderer = (() => {
     const endpoints = EndpointsManager.list();
     const v = (field, fallback = '') => profile ? (profile[field] ?? fallback) : fallback;
 
-    const attendanceMode  = v('attendanceMode', 'sequential');
-    const attendanceFixed = v('attendanceFixed', '');
-    const seqChecked   = attendanceMode === 'sequential' ? 'checked' : '';
-    const fixedChecked = attendanceMode === 'fixed'      ? 'checked' : '';
-    const fixedDisplay = attendanceMode === 'fixed'      ? 'block'   : 'none';
+    const attendanceMode = v('attendanceMode', 'sequential');
+    const seqChecked     = attendanceMode === 'sequential' ? 'checked' : '';
+    const fixedChecked   = attendanceMode === 'fixed'      ? 'checked' : '';
 
     // Endpoint dropdown or manual URL fallback
     const endpointField = endpoints.length
@@ -1252,22 +1266,15 @@ const Renderer = (() => {
             Modo — NumeroAtendimento
             <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
-                <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}
-                  onchange="document.getElementById('attendance-fixed-row').style.display='none'">
+                <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}>
                 Sequencial <span style="color:#9CA3AF;font-size:.85em;">(PRD20260625001…)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
-                <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}
-                  onchange="document.getElementById('attendance-fixed-row').style.display='block'">
+                <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}>
                 Fixo
               </label>
             </div>
-            <div id="attendance-fixed-row" style="margin-top:8px;display:${fixedDisplay};">
-              <input id="attendance-fixed-value" type="text"
-                placeholder="Valor fixo do número de atendimento"
-                value="${UtilsEngine.escapeXML(attendanceFixed)}"
-                style="width:100%;max-width:340px;" />
-            </div>
+            <small class="field-note" style="margin-top:4px;">Quando "Fixo", preencha o valor no campo <strong>NumeroAtendimentoApoiado</strong> nos Parâmetros do Método abaixo.</small>
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Método SOAP vinculado
@@ -1289,12 +1296,30 @@ const Renderer = (() => {
     const methodSel = document.getElementById('profile-method-id');
     const container = document.getElementById('method-custom-fields');
     if (!methodSel || !container) return;
+
+    const syncAttendanceInput = () => {
+      const mode = document.querySelector('input[name="attendance-mode"]:checked')?.value || 'sequential';
+      const input = document.querySelector('[data-custom-var="NumeroAtendimentoApoiado"]');
+      if (!input) return;
+      const isSeq = mode === 'sequential';
+      input.disabled = isSeq;
+      input.style.opacity = isSeq ? '0.5' : '';
+      input.style.background = isSeq ? '#F3F4F6' : '';
+      input.placeholder = isSeq ? 'Gerado automaticamente (sequencial)' : 'Valor fixo do número de atendimento';
+      if (isSeq) input.value = '';
+    };
+
     const render = () => {
       const mid = methodSel.value;
       const method = mid ? MethodsManager.getById(mid) : null;
       container.innerHTML = _buildCustomFieldsHTML(method?.variables || [], profile);
+      syncAttendanceInput();
     };
+
     methodSel.addEventListener('change', render);
+    document.querySelectorAll('input[name="attendance-mode"]').forEach(r =>
+      r.addEventListener('change', syncAttendanceInput)
+    );
     render();
   };
 
@@ -1375,7 +1400,9 @@ const Renderer = (() => {
       if (key) customVars[key] = el.value.trim();
     });
     const attendanceMode  = document.querySelector('[name="attendance-mode"]:checked')?.value || 'sequential';
-    const attendanceFixed = document.getElementById('attendance-fixed-value')?.value.trim() || '';
+    const attendanceFixed = attendanceMode === 'fixed'
+      ? (customVars['NumeroAtendimentoApoiado'] || '')
+      : '';
 
     if (!name) return NotificationsManager.danger('O nome do perfil é obrigatório');
     if (!code) return NotificationsManager.danger('O código do perfil é obrigatório');
@@ -1476,17 +1503,22 @@ const Renderer = (() => {
             <input id="method-descricao" type="text" placeholder="Ex: Recebe atendimento e retorna número apoiado" value="${v('descricao')}" />
           </label>
           <label class="field" style="grid-column: 1 / -1;">
-            Payload SOAP (template XML)
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+              <span>Payload SOAP (template XML)</span>
+              <span style="display:flex;align-items:center;gap:8px;">
+                <button type="button" id="btn-detect-vars" style="padding:5px 12px;background:#003761;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82em;font-weight:500;">
+                  Detectar Campos
+                </button>
+                <span id="method-vars-count" style="color:#6B7280;font-size:.82em;"></span>
+              </span>
+            </div>
             <textarea id="method-payload" rows="10" placeholder="Cole o envelope SOAP completo. Deixe as tags variáveis vazias (ex: &lt;NumeroAtendimento&gt;&lt;/NumeroAtendimento&gt;) e clique em Detectar Campos.">${v('payloadTemplate')}</textarea>
             <small class="field-note">Cole o XML com tags vazias ou placeholders {{VAR}}. Use "Detectar Campos" para identificar os campos automaticamente.</small>
+            <details id="method-vars-details" style="margin-top:6px;">
+              <summary style="cursor:pointer;font-size:.82em;color:#6B7280;user-select:none;">Campos detectados</summary>
+              <div id="method-vars-preview" style="margin-top:6px;min-height:28px;"></div>
+            </details>
           </label>
-          <div style="grid-column: 1 / -1; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button type="button" id="btn-detect-vars" style="padding:6px 14px;background:#003761;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:500;">
-              Detectar Campos
-            </button>
-            <span id="method-vars-count" style="color:#6B7280;font-size:.85em;"></span>
-          </div>
-          <div id="method-vars-preview" style="grid-column: 1 / -1; min-height:28px;"></div>
           <input type="hidden" id="method-vars-json" value="${UtilsEngine.escapeXML(varsJson)}" />
         </div>
       </form>
@@ -1504,6 +1536,7 @@ const Renderer = (() => {
       const jsonInput = document.getElementById('method-vars-json');
       if (jsonInput) jsonInput.value = JSON.stringify(vars);
       _renderVarBadges(vars);
+      document.getElementById('method-vars-details')?.setAttribute('open', '');
     });
   };
 
@@ -1538,6 +1571,7 @@ const Renderer = (() => {
     // Pré-renderiza badges se método já tem variables salvas
     if (method.variables && method.variables.length) {
       _renderVarBadges(method.variables);
+      document.getElementById('method-vars-details')?.setAttribute('open', '');
     }
   };
 
