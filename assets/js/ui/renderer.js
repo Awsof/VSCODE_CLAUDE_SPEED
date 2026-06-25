@@ -240,6 +240,11 @@ const Renderer = (() => {
             Timeout (segundos)
             <input id="test-timeout" type="number" min="10" value="120" />
           </label>
+          <label class="field">
+            Delay entre lotes (s)
+            <input id="test-delay" type="number" min="0" max="300" step="1" value="0" />
+            <small class="field-note">Aguarda N s após cada lote terminar antes do próximo.</small>
+          </label>
         </div>
         <div class="button-bar" style="margin-top:16px;">
           <button class="button primary" type="button" id="btn-start-test">Iniciar Teste</button>
@@ -790,6 +795,11 @@ const Renderer = (() => {
             Timeout (segundos)
             <input id="schedule-timeout" type="number" min="10" value="${v(cfg.timeout, 120)}" />
           </label>
+          <label class="field">
+            Delay entre lotes (s)
+            <input id="schedule-delay" type="number" min="0" max="300" step="1" value="${v(cfg.delaySeconds, 0)}" />
+            <small class="field-note">Aguarda N s após cada lote terminar antes do próximo.</small>
+          </label>
         </div>
         <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">Selecione ao menos um perfil. No modo recorrente o agendamento executa indefinidamente nos dias/horários selecionados.</p>
       </form>
@@ -878,6 +888,7 @@ const Renderer = (() => {
     const requestsPerProfile = Number(document.getElementById('schedule-requests')?.value || 1);
     const concurrency = Number(document.getElementById('schedule-concurrency')?.value || 1);
     const timeout = Number(document.getElementById('schedule-timeout')?.value || 120);
+    const delaySeconds = Number(document.getElementById('schedule-delay')?.value || 0);
     const days = Array.from(document.querySelectorAll('input[name="schedule-days"]:checked')).map(input => input.value);
 
     // Resolver profileIds e groupId conforme tipo de alvo
@@ -915,7 +926,7 @@ const Renderer = (() => {
       cenarioId: null,
       groupId,
       profileIds,
-      config: { requestsPerProfile, concurrency, timeout },
+      config: { requestsPerProfile, concurrency, timeout, delaySeconds },
       agendamento: { dataInicio: startDate, dataFim: endDate, horaInicio: startTime, horaFim: endTime, frequenciaMinutos: frequency, diasSemana: days },
       ativo: true
     };
@@ -3252,6 +3263,7 @@ const Renderer = (() => {
         const rawRequests    = Number(document.getElementById('test-requests')?.value   || 1);
         const rawConcurrency = Number(document.getElementById('test-concurrency')?.value || 1);
         const timeout        = Number(document.getElementById('test-timeout')?.value     || 120);
+        const delaySeconds   = Number(document.getElementById('test-delay')?.value       || 0);
         const requests    = Math.min(rawRequests,    limits.maxRequests);
         const concurrency = Math.min(rawConcurrency, limits.maxConcurrency);
 
@@ -3314,7 +3326,8 @@ const Renderer = (() => {
             const results = await RunnerEngine.executeBatch([mergedProfile], {
               requestsPerProfile: requests,
               concurrency,
-              timeout
+              timeout,
+              delaySeconds
             }, (progress) => {
               if (progressDiv) {
                 progressDiv.innerHTML = `<span class="badge info">${UtilsEngine.escapeXML(profile.nome)}: ${progress.completed}/${progress.total} (${progress.successful} ok / ${progress.failed} falhas)</span>`;

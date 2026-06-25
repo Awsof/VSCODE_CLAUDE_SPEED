@@ -109,6 +109,7 @@ const SchedulerManager = (() => {
         concurrency: scheduleData.config?.concurrency || 3,
         rampUp: scheduleData.config?.rampUp || 0,
         timeout: scheduleData.config?.timeout || 120,
+        delaySeconds: scheduleData.config?.delaySeconds || 0,
         methodId: scheduleData.config?.methodId || null
       },
       cron: scheduleData.cron ? scheduleData.cron.trim() : null,

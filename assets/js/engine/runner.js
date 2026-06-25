@@ -191,9 +191,12 @@ const RunnerEngine = (() => {
             await UtilsEngine.sleep(delayMs);
           }
 
-          // Aguardar disponibilidade de slot
-          while (activeRequests.size >= maxConcurrency && !state.activeAbort.signal.aborted) {
-            await Promise.race(activeRequests);
+          // Aguardar lote completo antes de despachar próximo (batch mode)
+          if (activeRequests.size >= maxConcurrency && !state.activeAbort.signal.aborted) {
+            await Promise.all([...activeRequests]);
+            if ((config.delaySeconds || 0) > 0 && !state.activeAbort.signal.aborted) {
+              await UtilsEngine.sleep(config.delaySeconds * 1000);
+            }
           }
 
           if (state.activeAbort.signal.aborted) {
