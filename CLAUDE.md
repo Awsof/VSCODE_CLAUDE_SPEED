@@ -92,7 +92,9 @@ All localStorage keys use the `stp_v3_` prefix (prevents conflicts with legacy v
 
 ### Authentication & RBAC
 
-Three user roles: `admin`, `operador`, `visualizador`. The correct permission check is `RBACManager.canCurrent(resource)` — 78 permission resources are defined in `auth/rbac.js`. Passwords are SHA-256 hashed client-side. Sessions expire after **30 minutes of inactivity** (tracked via `lastActivity` timestamp, updated on every user action).
+Three user roles: `admin`, `operador`, `visualizador`. The correct permission check is `RBACManager.canCurrent(resource)` — 78 permission resources are defined in `auth/rbac.js`. Passwords are SHA-256 hashed client-side. Sessions expire after **30 minutes of inactivity** (tracked via `lastActivity` timestamp, updated on every user action). Session data is stored in `sessionStorage` (volatile — cleared on tab close), not localStorage.
+
+**Login lockout:** after 5 consecutive failed attempts, `api/login.js` sets `lockedUntil` (+15 min) in the Turso `users` table and returns HTTP 429. Successful login resets `loginFailures` and `lockedUntil` to zero/null.
 
 First-access bootstrap: if no users exist, a first-admin creation screen appears via `LoginScreenManager.show()`.
 
@@ -178,7 +180,7 @@ Typography: UI uses **Inter** (labels/titles); technical data (URLs, response ti
 
 - **RBAC checks are mandatory** before any destructive UI action — call `RBACManager.canCurrent(resource)` and hide/disable controls for unauthorized roles.
 - **Two persistence layers:** `StorageEngine` (localStorage, `stp_v3_` prefix) for all entities except results; `ResultsManager` (IndexedDB, `stp_results_v1`) for execution results. Do not write results to localStorage.
-- **Proxy required for all SOAP calls** — direct browser-to-endpoint requests will fail due to CORS; always route through `/api/proxy.js`.
+- **Proxy required for all SOAP calls** — direct browser-to-endpoint requests will fail due to CORS; always route through `/api/proxy.js`. The proxy requires a valid JWT (`Authorization: Bearer`) and enforces a domain whitelist (`wsmb.diagnosticosdobrasil.com.br`, `wsmp.diagnosticosdobrasil.com.br`) — requests to other hosts return 403.
 - **Module globals** — when adding a new module, register it on `window` and add it to the validation list in `app.js`.
 - **Result schema** must include `origem` field (`"manual"`, `"schedule"`, or `"scenario"`) and `executadoPor` (user UUID). This field drives UI filtering.
 - **Scenario steps are strictly sequential** — each step runs to full completion before the next begins; parallelism only applies within a single step's concurrent requests.
@@ -188,10 +190,12 @@ Typography: UI uses **Inter** (labels/titles); technical data (URLs, response ti
 `window.STP_DEBUG` is available in the browser console:
 
 ```javascript
-STP_DEBUG.session()    // Current session info
-STP_DEBUG.rbac()       // Current permissions for active user
-STP_DEBUG.storage()    // Count of all stored entities
-STP_DEBUG.logout()     // Force logout
+STP_DEBUG.session()              // Current session info
+STP_DEBUG.rbac()                 // Current permissions for active user
+STP_DEBUG.storage()              // Count of all stored entities
+STP_DEBUG.renderer()             // Current active tab
+STP_DEBUG.logout()               // Force logout
+STP_DEBUG.login(usuario, senha)  // Programmatic login (skips UI)
 ```
 
 ## Cache-Bust Versions (current)
@@ -206,7 +210,7 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 | `assets/js/ui/renderer.js` | v=24 |
 | `assets/js/ui/login-screen.js` | v=18 |
 | `assets/js/features/scheduler.js` | v=10 |
-| `assets/js/storage/schedules.js` | v=13 |
+| `assets/js/storage/schedules.js` | v=14 |
 | `assets/js/storage/results.js` | v=14 |
 | `assets/js/storage/users.js` | v=14 |
 | `assets/js/storage/profiles.js` | v=10 |
@@ -247,7 +251,7 @@ Todas as entidades abaixo são persistidas no Turso (libSQL/SQLite) em `libsql:/
 - `{ action: 'setAtivo', ativo: bool, proximaExecucao?: ISO }` — liga/desliga
 - `{ action: 'recordExecution', ultimaExecucao: ISO, proximaExecucao: ISO }` — pós-execução
 
-**Campos de usuário:** `senhaTemporaria INTEGER DEFAULT 0`, `inativacaoTipo TEXT` (`'temporaria'|'definitiva'`), `inativoAte TEXT` (data ISO p/ inativação temporária). Adicionados via `ALTER TABLE` em `initSchema()` (migração idempotente).
+**Campos de usuário:** `senhaTemporaria INTEGER DEFAULT 0`, `inativacaoTipo TEXT` (`'temporaria'|'definitiva'`), `inativoAte TEXT` (data ISO p/ inativação temporária), `loginFailures INTEGER DEFAULT 0`, `lockedUntil TEXT`. Adicionados via `ALTER TABLE` em `initSchema()` (migração idempotente).
 
 ## Documentation
 
@@ -256,4 +260,5 @@ Detailed specs and scope are in the root-level `.md` files:
 - `STP_SOAP_v3_Especificacao_Tecnica.md` — original full technical specification
 - `STP_SOAP_v3_Escopo_Evolucao.md` — phase-by-phase scope
 - `ROADMAP.md` — current completion status
+- `SECURITY_PLAN.md` — security audit (2026-06-24): open items include SHA-256 password hashing (no salt), XSS via `innerHTML` in `renderer.js`, and missing rate limiting on non-login endpoints
 - Each `assets/js/<module>/` folder contains a phase-specific README

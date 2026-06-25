@@ -243,7 +243,7 @@ const SchedulerManager = (() => {
       ...schedule,
       ultimaExecucao: executedAt,
       proximaExecucao: schedule.agendamento
-        ? _calculateNextExecutionFromWindow({ ...schedule, ultimaExecucao: anchor })
+        ? _calculateNextExecutionFromWindow({ ...schedule, ultimaExecucao: anchor }, new Date(anchor))
         : _calculateNextExecutionFromCron(schedule.cron)
     };
 
@@ -345,9 +345,20 @@ const SchedulerManager = (() => {
     const frequencyMs = (config.frequenciaMinutos || 60) * 60 * 1000;
     const current = new Date(baseDate);
 
+    // Detectar janela overnight (horaFim < horaInicio → cruza meia-noite)
+    const _fim = _parseTime(config.horaFim || '23:59');
+    const _ini = _parseTime(config.horaInicio || '00:00');
+    const isOvernight = (_fim.hours * 60 + _fim.minutes) < (_ini.hours * 60 + _ini.minutes);
+
+    // Para janelas overnight, voltar 1 dia para capturar a janela que
+    // começou ontem e ainda está ativa nas primeiras horas de hoje.
     const candidate = new Date(current);
+    if (isOvernight) candidate.setDate(candidate.getDate() - 1);
+    candidate.setHours(0, 0, 0, 0);
+
     if (candidate < startDate) {
       candidate.setTime(startDate.getTime());
+      candidate.setHours(0, 0, 0, 0);
     }
 
     for (let i = 0; i < 14; i += 1) {
@@ -361,18 +372,19 @@ const SchedulerManager = (() => {
         }
 
         if (candidate <= windowEnd) {
-          const now = candidate;
-          if (now <= windowStart) {
+          // Usar `current` (baseDate real) para comparação — não o ponteiro `candidate`
+          if (current < windowStart) {
             return windowStart.toISOString();
           }
 
           const lastExec = schedule.ultimaExecucao ? new Date(schedule.ultimaExecucao) : null;
           if (!lastExec) {
-            return now.toISOString();
+            return current.toISOString();
           }
 
           const nextCandidate = new Date(lastExec.getTime() + frequencyMs);
-          if (nextCandidate <= windowEnd) {
+          // Garantir: no futuro, dentro da janela e dentro do período do agendamento
+          if (nextCandidate > current && nextCandidate <= windowEnd && nextCandidate <= endDate) {
             return nextCandidate.toISOString();
           }
         }
