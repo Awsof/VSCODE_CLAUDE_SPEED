@@ -66,6 +66,7 @@ Each module registers itself on `window`. These are the actual global names:
 | `ResultsManager` | `storage/results.js` | `init (async), add, addBatch, list, getById, getStats, clear (async), count` |
 | `SchedulerManager` | `storage/schedules.js` | `create, list, getById, update, delete, getDue` |
 | `MethodsManager` | `storage/methods.js` | `list, getById, create, update, delete_, count` |
+| `EndpointsManager` | `storage/endpoints.js` | `list, getById, create, update, delete_, count, syncFromTurso` |
 | `AuditLogManager` | `storage/audit-log.js` | `log, list, getByUser` |
 | `SessionManager` | `auth/session.js` | `login, logout, getSession, getCurrentUser, isAuthenticated` |
 | `RBACManager` | `auth/rbac.js` | `canCurrent, can, isAdmin, getPermissionsForLevel` |
@@ -97,6 +98,16 @@ Three user roles: `admin`, `operador`, `visualizador`. The correct permission ch
 **Login lockout:** after 5 consecutive failed attempts, `api/login.js` sets `lockedUntil` (+15 min) in the Turso `users` table and returns HTTP 429. Successful login resets `loginFailures` and `lockedUntil` to zero/null.
 
 First-access bootstrap: if no users exist, a first-admin creation screen appears via `LoginScreenManager.show()`.
+
+### Endpoints (Catálogo de URLs SOAP)
+
+`EndpointsManager` (`storage/endpoints.js`) mantém um catálogo reutilizável de URLs de endpoints SOAP, sincronizado com a tabela `endpoints` no Turso via `api/endpoints.js`. A aba "Endpoints" na sidebar (permissão `profiles:list`) exibe o CRUD completo.
+
+**Formulário de perfil:** o campo URL foi substituído por um dropdown que lista os endpoints cadastrados — ao selecionar, a URL é preenchida automaticamente com preview. Isso centraliza as URLs e evita repetição em cada perfil.
+
+**Modo de NumeroAtendimento:** o seletor Sequencial/Fixo foi movido para campo permanente do formulário de perfil. No modo Fixo, o campo `NumeroAtendimentoApoiado` em "Parâmetros do Método" fica habilitado; no modo Sequencial, fica desabilitado (valor gerado automaticamente pelo engine).
+
+**Detecção de campos inline (modal método SOAP):** o botão "Detectar Campos" fica embutido ao lado do título do campo Payload; os campos detectados aparecem em `<details>` colapsável abaixo do textarea.
 
 ### SOAP Execution Engine
 
@@ -206,16 +217,20 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/app.js` | v=15 |
-| `assets/js/ui/renderer.js` | v=24 |
+| `assets/js/app.js` | v=16 |
+| `assets/js/ui/renderer.js` | v=30 |
+| `assets/js/ui/sidebar.js` | v=10 |
 | `assets/js/ui/login-screen.js` | v=18 |
 | `assets/js/features/scheduler.js` | v=10 |
-| `assets/js/storage/schedules.js` | v=14 |
+| `assets/js/storage/schedules.js` | v=15 |
 | `assets/js/storage/results.js` | v=14 |
 | `assets/js/storage/users.js` | v=14 |
-| `assets/js/storage/profiles.js` | v=10 |
+| `assets/js/storage/profiles.js` | v=11 |
 | `assets/js/storage/groups.js` | v=12 |
-| `assets/js/storage/methods.js` | v=12 |
+| `assets/js/storage/methods.js` | v=13 |
+| `assets/js/storage/endpoints.js` | v=1 |
+| `assets/js/engine/runner.js` | v=12 |
+| `assets/js/engine/utils.js` | v=10 |
 | `assets/js/reports/reports.js` | v=20 |
 | `assets/js/auth/session.js` | v=14 |
 | All other JS/CSS | v=9 |
@@ -232,6 +247,7 @@ Todas as entidades abaixo são persistidas no Turso (libSQL/SQLite) em `libsql:/
 | Perfis | `profiles` | `api/profiles.js` | `ProfilesManager` | ao navegar para aba Perfis |
 | Métodos SOAP | `methods` | `api/methods.js`, `api/methods/[id].js` | `MethodsManager` | ao navegar para aba Métodos |
 | Agendamentos | `schedules` | `api/schedules.js`, `api/schedules/[id].js` | `SchedulerManager` | ao navegar para aba Agendamentos |
+| Endpoints | `endpoints` | `api/endpoints.js` | `EndpointsManager` | `syncFromTurso()` no boot + ao navegar para aba Endpoints |
 
 **Cenários** permanecem apenas em localStorage (sem Turso).
 
@@ -240,6 +256,8 @@ Todas as entidades abaixo são persistidas no Turso (libSQL/SQLite) em `libsql:/
 **`requestPayload` e `responseBody` NÃO são armazenados no Turso** — esses campos ficam apenas no IndexedDB local (muito grandes para sync). `_rowToResult()` em `api/results.js` sempre retorna `null` para esses campos.
 
 **Auth:** `POST /api/login` retorna JWT (7 dias); `SessionManager.getToken()` injeta em todas as chamadas autenticadas como `Authorization: Bearer <token>`. Fallback de emergência: env vars `LOGIN_USUARIO`/`LOGIN_SENHA` — usadas quando Turso está indisponível ou para auto-corrigir hash divergente (modo `env-sync`).
+
+**Edição de usuários (admin):** a tabela de usuários tem botão "Editar" que abre modal para alterar nome, email, login e nível de acesso via `PUT /api/users?id=`. Admins também podem resetar senha (marca `senhaTemporaria: true`).
 
 **Não-admins** só podem alterar a própria `senhaHash`/`senhaTemporaria` via `PUT /api/users?id=`. Qualquer outro campo retorna 403.
 

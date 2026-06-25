@@ -329,7 +329,7 @@
 
 <!-- DOWNLOAD BAR -->
 <div class="download-bar">
-  <span class="download-bar-info"><strong>Speed Teste DBSync</strong> — Guia do Usuário &nbsp;·&nbsp; Versão 3.0</span>
+  <span class="download-bar-info"><strong>Speed Teste DBSync</strong> — Guia do Usuário &nbsp;·&nbsp; Versão 3.1 &nbsp;·&nbsp; 2026-06-25</span>
   <button class="btn-download" onclick="window.print()">
     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
     Baixar / Imprimir PDF
@@ -347,14 +347,15 @@
       <li><a href="#s2">Níveis de acesso</a></li>
       <li><a href="#s3">Como entrar no sistema</a></li>
       <li><a href="#s4">Dashboard — Visão Geral</a></li>
-      <li><a href="#s5">Testes — Criando e executando testes</a></li>
-      <li><a href="#s6">Grupos — Organizando testes</a></li>
-      <li><a href="#s7">Agendamentos — Testes automáticos</a></li>
-      <li><a href="#s8">Resultados — Histórico de execuções</a></li>
-      <li><a href="#s9">Relatórios — Exportando dados</a></li>
-      <li><a href="#s10">Usuários — Gerenciando pessoas (Admin)</a></li>
-      <li><a href="#s11">Configurações e sessão</a></li>
-      <li><a href="#s12">Perguntas frequentes</a></li>
+      <li><a href="#s5">Endpoints — Catálogo de serviços</a></li>
+      <li><a href="#s6">Testes — Criando e executando testes</a></li>
+      <li><a href="#s7">Grupos — Organizando testes</a></li>
+      <li><a href="#s8">Agendamentos — Testes automáticos</a></li>
+      <li><a href="#s9">Resultados — Histórico de execuções</a></li>
+      <li><a href="#s10">Relatórios — Exportando dados</a></li>
+      <li><a href="#s11">Usuários — Gerenciando pessoas (Admin)</a></li>
+      <li><a href="#s12">Configurações e sessão</a></li>
+      <li><a href="#s13">Perguntas frequentes</a></li>
     </ol>
   </div>
 
@@ -609,11 +610,67 @@
 
   <hr>
 
-  <!-- ── 5. TESTES ── -->
+  <!-- ── 5. ENDPOINTS ── -->
   <span class="section-anchor" id="s5"></span>
   <div class="section">
     <div class="section-header">
       <div class="section-num">5</div>
+      <div>
+        <h2><span class="emoji">🔗</span>Endpoints — Catálogo de serviços</h2>
+        <p class="section-desc">Gerencie os endereços dos serviços usados nos testes</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">O que é um "Endpoint"?</div>
+      <p>Um <strong>Endpoint</strong> é o endereço (URL) de um serviço de integração do Grupo DB. O catálogo de endpoints centraliza essas URLs para que não seja necessário digitá-las repetidamente em cada teste.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Criar um Endpoint</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Endpoints</strong> na barra lateral esquerda (seção Ajustes).</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Novo Endpoint</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Preencha o formulário:
+            <br><br>
+            <table class="feat">
+              <thead><tr><th>Campo</th><th>O que preencher</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Nome</strong></td><td>Nome amigável para identificar o serviço (ex: "Produção MB")</td></tr>
+                <tr><td><strong>URL</strong></td><td>Endereço completo do serviço (fornecido pela equipe de TI)</td></tr>
+                <tr><td><strong>Descrição</strong></td><td>Opcional — observações sobre o ambiente ou uso</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">Clique em <strong>Salvar</strong>. O endpoint ficará disponível para seleção ao criar ou editar testes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="note-icon">ℹ️</span>
+      <span>Ao criar ou editar um <strong>Teste</strong>, a URL é selecionada diretamente do catálogo de endpoints — não é necessário digitá-la manualmente. Qualquer alteração no endpoint reflete automaticamente em todos os testes associados na próxima vez que forem editados.</span>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 6. TESTES ── -->
+  <span class="section-anchor" id="s6"></span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">6</div>
       <div>
         <h2><span class="emoji">🧾</span>Testes — Criando e executando</h2>
         <p class="section-desc">Cadastre serviços e dispare testes de performance</p>
@@ -699,11 +756,11 @@
 
   <hr>
 
-  <!-- ── 6. GRUPOS ── -->
-  <span class="section-anchor" id="s6"></span>
+  <!-- ── 7. GRUPOS ── -->
+  <span class="section-anchor" id="s7"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">6</div>
+      <div class="section-num">7</div>
       <div>
         <h2><span class="emoji">🗂️</span>Grupos — Organizando testes</h2>
         <p class="section-desc">Agrupe testes relacionados para facilitar agendamentos</p>
@@ -746,11 +803,11 @@
 
   <hr>
 
-  <!-- ── 7. AGENDAMENTOS ── -->
-  <span class="section-anchor" id="s7"></span>
+  <!-- ── 8. AGENDAMENTOS ── -->
+  <span class="section-anchor" id="s8"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">7</div>
+      <div class="section-num">8</div>
       <div>
         <h2><span class="emoji">⏰</span>Agendamentos — Testes automáticos</h2>
         <p class="section-desc">Configure o sistema para testar sozinho, sem intervenção humana</p>
@@ -811,11 +868,11 @@
 
   <hr>
 
-  <!-- ── 8. RESULTADOS ── -->
-  <span class="section-anchor" id="s8"></span>
+  <!-- ── 9. RESULTADOS ── -->
+  <span class="section-anchor" id="s9"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">8</div>
+      <div class="section-num">9</div>
       <div>
         <h2><span class="emoji">📊</span>Resultados — Histórico de execuções</h2>
         <p class="section-desc">Consulte todos os testes já realizados</p>
@@ -847,11 +904,11 @@
 
   <hr>
 
-  <!-- ── 9. RELATÓRIOS ── -->
-  <span class="section-anchor" id="s9"></span>
+  <!-- ── 10. RELATÓRIOS ── -->
+  <span class="section-anchor" id="s10"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">9</div>
+      <div class="section-num">10</div>
       <div>
         <h2><span class="emoji">📄</span>Relatórios — Exportando dados</h2>
         <p class="section-desc">Baixe os resultados para análise ou apresentação</p>
@@ -916,11 +973,11 @@
 
   <hr>
 
-  <!-- ── 10. USUÁRIOS ── -->
-  <span class="section-anchor" id="s10"></span>
+  <!-- ── 11. USUÁRIOS ── -->
+  <span class="section-anchor" id="s11"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">10</div>
+      <div class="section-num">11</div>
       <div>
         <h2><span class="emoji">👥</span>Usuários — Gerenciando pessoas</h2>
         <p class="section-desc">Exclusivo para Administradores</p>
@@ -950,6 +1007,32 @@
     </div>
 
     <div class="card">
+      <div class="card-title">Editar um usuário</div>
+      <p>Na lista de usuários, clique no botão <strong>Editar</strong> para abrir um modal de edição. É possível alterar:</p>
+      <br>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Nome</strong> — nome de exibição do usuário.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>E-mail</strong> — endereço de e-mail.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Usuário (login)</strong> — nome de login único.</div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body"><strong>Nível de acesso</strong> — Admin, Operador ou Visualizador.</div>
+        </div>
+      </div>
+      <br>
+      <p>Para redefinir a senha de um usuário, marque a opção <strong>Marcar senha como temporária</strong> — na próxima vez que o usuário fizer login, será obrigado a definir uma nova senha antes de acessar o sistema.</p>
+    </div>
+
+    <div class="card">
       <div class="card-title">Desativar ou remover um usuário</div>
       <p>Na lista de usuários, utilize os botões de ação em cada linha para <strong>desativar</strong> (impede login sem excluir) ou <strong>excluir</strong> permanentemente o usuário.</p>
     </div>
@@ -962,11 +1045,11 @@
 
   <hr>
 
-  <!-- ── 11. CONFIGURAÇÕES ── -->
-  <span class="section-anchor" id="s11"></span>
+  <!-- ── 12. CONFIGURAÇÕES ── -->
+  <span class="section-anchor" id="s12"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">11</div>
+      <div class="section-num">12</div>
       <div>
         <h2><span class="emoji">⚙️</span>Configurações e Sessão</h2>
         <p class="section-desc">Informações sobre sua conta e sessão atual</p>
@@ -1000,11 +1083,11 @@
 
   <hr>
 
-  <!-- ── 12. FAQ ── -->
-  <span class="section-anchor" id="s12"></span>
+  <!-- ── 13. FAQ ── -->
+  <span class="section-anchor" id="s13"></span>
   <div class="section">
     <div class="section-header">
-      <div class="section-num">12</div>
+      <div class="section-num">13</div>
       <div>
         <h2><span class="emoji">❓</span>Perguntas Frequentes</h2>
         <p class="section-desc">Dúvidas comuns e como resolvê-las</p>
@@ -1045,13 +1128,23 @@
       <strong>Tentei fazer login e apareceu "Conta bloqueada" — o que fazer?</strong>
       <p style="margin-top:8px;color:var(--muted);">Por segurança, após 5 tentativas de login com senha incorreta, a conta fica bloqueada por 15 minutos. Aguarde o tempo indicado na mensagem e tente novamente. Se não lembrar a senha, entre em contato com um Administrador do sistema para redefini-la.</p>
     </div>
+
+    <div class="card">
+      <strong>Por que preciso cadastrar um Endpoint antes de criar um Teste?</strong>
+      <p style="margin-top:8px;color:var(--muted);">O catálogo de Endpoints centraliza os endereços dos serviços para evitar erros de digitação e facilitar a manutenção. Ao criar um Teste, basta selecionar o endpoint no dropdown — a URL é preenchida automaticamente. Se a URL de um serviço mudar, basta atualizar o endpoint uma vez e todos os testes o utilizarão corretamente.</p>
+    </div>
+
+    <div class="card">
+      <strong>Como redefino a senha de outro usuário?</strong>
+      <p style="margin-top:8px;color:var(--muted);">Apenas administradores podem redefinir senhas. Clique em <strong>Editar</strong> na linha do usuário desejado, marque a opção <strong>Marcar senha como temporária</strong> e salve. Informe ao usuário uma nova senha temporária — na próxima vez que ele fizer login, o sistema pedirá a criação de uma nova senha.</p>
+    </div>
   </div>
 
 </div>
 
 <!-- FOOTER -->
 <div class="footer">
-  <strong>Speed Teste DBSync v3.0</strong> &nbsp;·&nbsp; Grupo DB — Medicina Diagnóstica Ltda &nbsp;·&nbsp; Uso interno
+  <strong>Speed Teste DBSync v3.1</strong> &nbsp;·&nbsp; Grupo DB — Medicina Diagnóstica Ltda &nbsp;·&nbsp; Uso interno
 </div>
 
 </body>

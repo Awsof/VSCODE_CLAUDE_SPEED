@@ -2,7 +2,7 @@
 
 **Público-alvo:** Analistas e desenvolvedores responsáveis pela manutenção e evolução do sistema  
 **Projeto:** Monitor de Performance para endpoints SOAP/WCF — Grupo DB · Medicina Diagnóstica  
-**Última atualização:** 2026-06-24
+**Última atualização:** 2026-06-25
 
 ---
 
@@ -25,6 +25,7 @@
 15. [Tarefas de Manutenção Comuns](#15-tarefas-de-manutenção-comuns)
 16. [Convenções Críticas](#16-convenções-críticas)
 17. [Deploy e Cache-Bust](#17-deploy-e-cache-bust)
+18. [Endpoints — Catálogo de URLs SOAP](#18-endpoints--catálogo-de-urls-soap)
 
 ---
 
@@ -245,6 +246,7 @@ window.MeuModulo = MeuModulo;
 | `ResultsManager` | `storage/results.js` | Histórico de execuções (max 5.000) | `save(result)`, `list()`, `getById(id)`, `getStats()`, `cleanup()` |
 | `SchedulerManager` | `storage/schedules.js` | Persistência de agendamentos | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)`, `getDue()`, `recordExecution(id)` |
 | `MethodsManager` | `storage/methods.js` | Métodos SOAP reutilizáveis | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)` |
+| `EndpointsManager` | `storage/endpoints.js` | Catálogo de URLs de endpoints SOAP | `list()`, `getById(id)`, `create(data)`, `update(id, data)`, `delete_(id)`, `count()`, `syncFromTurso()` |
 | `AuditLogManager` | `storage/audit-log.js` | Log de auditoria de ações | `log(action, detail)`, `list()`, `getByUser(userId)` |
 | `SessionManager` | `auth/session.js` | Controle de sessão (30min inatividade) | `login(user)`, `logout()`, `getSession()`, `getCurrentUser()`, `isAuthenticated()`, `updateActivity()`, `isNearTimeout(minutes)` |
 | `RBACManager` | `auth/rbac.js` | Verificação de 78 permissões por papel | `canCurrent(resource)`, `can(userId, resource)`, `isAdmin()`, `getPermissionsForLevel(nivel)` |
@@ -271,7 +273,7 @@ O sistema usa **três camadas** de persistência:
 
 | Camada | Tecnologia | O que guarda |
 |--------|-----------|-------------|
-| **Turso (nuvem)** | libSQL/SQLite via `@libsql/client` | Usuários, Grupos, Perfis, Métodos, Agendamentos, metadados de Resultados |
+| **Turso (nuvem)** | libSQL/SQLite via `@libsql/client` | Usuários, Grupos, Perfis, Métodos, Agendamentos, Endpoints, metadados de Resultados |
 | **IndexedDB** | `stp_results_v1` (browser) | Cache completo de resultados (incluindo `requestPayload` e `responseBody`, que não vão ao Turso) |
 | **localStorage** | prefix `stp_v3_` | Apenas **Cenários** (sem sync com Turso) |
 
@@ -376,6 +378,20 @@ StorageEngine.exists('scenarios')      // boolean
 ```
 
 > **Atenção:** Os campos `origem` e `executadoPor` são **obrigatórios** em todo resultado. A UI filtra e exibe resultados separados por origem.
+
+#### Endpoint (Catálogo de URLs SOAP)
+```javascript
+{
+  id: "uuid-v4",
+  nome: "Produção MB",
+  url: "https://wsmb.diagnosticosdobrasil.com.br/...",
+  descricao: "Endpoint de produção — ambiente MB",
+  criadoPor: "uuid-do-criador",
+  criadoEm: "2026-06-25T10:00:00.000Z"
+}
+```
+
+Endpoints são selecionados via dropdown no formulário de perfil — a URL não é mais digitada diretamente. Isso evita erros de digitação e centraliza a manutenção das URLs em um único lugar.
 
 #### Agendamento
 ```javascript
@@ -1082,21 +1098,63 @@ Os browsers cacheiam arquivos JS e CSS agressivamente. Para garantir que usuári
 
 | Arquivo | Versão atual |
 |---------|-------------|
-| `ui/renderer.js` | v=24 |
+| `ui/renderer.js` | v=30 |
+| `ui/sidebar.js` | v=10 |
 | `auth/session.js` | v=14 |
 | `ui/login-screen.js` | v=18 |
-| `app.js` | v=15 |
+| `app.js` | v=16 |
 | `features/scheduler.js` | v=10 |
-| `storage/schedules.js` | v=13 |
+| `storage/schedules.js` | v=15 |
 | `storage/results.js` | v=14 |
 | `storage/users.js` | v=14 |
-| `storage/profiles.js` | v=10 |
+| `storage/profiles.js` | v=11 |
 | `storage/groups.js` | v=12 |
-| `storage/methods.js` | v=12 |
+| `storage/methods.js` | v=13 |
+| `storage/endpoints.js` | v=1 (novo) |
+| `engine/runner.js` | v=12 |
+| `engine/utils.js` | v=10 |
 | `reports/reports.js` | v=20 |
 | `css/layout.css` | v=10 |
 | `css/charts.css` | v=10 |
 | Demais JS/CSS | v=9 |
+
+---
+
+---
+
+## 18. Endpoints — Catálogo de URLs SOAP
+
+A entidade **Endpoint** centraliza as URLs dos serviços SOAP usados pelos perfis, evitando que cada perfil precise digitar a mesma URL repetidamente.
+
+### Aba "Endpoints" na sidebar
+
+Visível para usuários com permissão `profiles:list` (operador e admin). Exibe o catálogo completo com CRUD: criar, editar, excluir e visualizar endpoints. Sincroniza com o Turso no boot via `EndpointsManager.syncFromTurso()` e ao navegar para a aba.
+
+### Integração com o formulário de perfil
+
+Ao criar ou editar um perfil, a URL não é mais digitada livremente — em vez disso, o usuário escolhe no dropdown de endpoints cadastrados. A URL correspondente é exibida como preview imediatamente abaixo do dropdown.
+
+```javascript
+// Seletor no formulário de perfil:
+// <select id="profile-endpoint-id"> → popula profile.url no momento de salvar
+const endpoint = EndpointsManager.getById(selectedEndpointId);
+profile.url = endpoint.url;
+```
+
+### API REST
+
+| Método | Rota | Autenticação | Descrição |
+|--------|------|-------------|-----------|
+| `GET` | `/api/endpoints` | JWT obrigatório | Lista todos os endpoints |
+| `POST` | `/api/endpoints` | JWT obrigatório | Cria endpoint |
+| `PUT` | `/api/endpoints?id=` | JWT obrigatório | Atualiza nome/URL/descrição |
+| `DELETE` | `/api/endpoints?id=` | JWT admin | Exclui (apenas admins) |
+
+A tabela `endpoints` é criada por `initSchema()` em `api/_db.js` (migração idempotente).
+
+### Auto-migração
+
+Se o Turso estiver vazio mas o localStorage tiver endpoints, `syncFromTurso()` envia todos via `POST /api/endpoints` automaticamente — sem intervenção manual.
 
 ---
 
