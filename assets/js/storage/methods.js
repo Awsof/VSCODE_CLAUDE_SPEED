@@ -83,7 +83,7 @@ const MethodsManager = (() => {
   const getById = (id) => list().find(m => m.id === id) || null;
 
   const create = (data) => {
-    const { nome, operacao, soapAction, payloadTemplate, xmlTag, descricao, criadoPor } = data;
+    const { nome, operacao, soapAction, payloadTemplate, xmlTag, descricao, criadoPor, variables } = data;
     if (!nome || !soapAction || !payloadTemplate || !criadoPor) {
       console.error('[MethodsManager] Campos obrigatórios faltando');
       return null;
@@ -98,6 +98,7 @@ const MethodsManager = (() => {
         payloadTemplate: payloadTemplate.trim(),
         xmlTag: (xmlTag || 'diag:NumeroAtendimentoApoiado').trim(),
         descricao: (descricao || '').trim(),
+        variables: variables || [],
         criadoPor,
         criadoEm: new Date().toISOString()
       };

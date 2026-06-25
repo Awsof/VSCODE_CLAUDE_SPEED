@@ -200,8 +200,15 @@ const RunnerEngine = (() => {
             break;
           }
 
-          // Gerar número de atendimento
-          const attendanceNumber = UtilsEngine.generateAttendanceNumber(profile.codigo);
+          // Gerar número de atendimento conforme modo configurado no perfil
+          let attendanceNumber;
+          if (profile.attendanceMode === 'fixed') {
+            attendanceNumber = profile.attendanceFixed || 'FIXO';
+          } else if (profile.attendanceMode === 'random') {
+            attendanceNumber = UtilsEngine.generateRandomAttendanceNumber(profile.codigo);
+          } else {
+            attendanceNumber = UtilsEngine.generateAttendanceNumber(profile.codigo);
+          }
 
           // Preencher placeholders no payload
           let filledPayload = profile.payloadTemplate;
@@ -210,6 +217,13 @@ const RunnerEngine = (() => {
           filledPayload = filledPayload.replace(/{{SENHA}}/g, profile.senha || '');
           filledPayload = filledPayload.replace(/{{CODIGO_APOIADO}}/g, profile.codigoApoiado || '');
           filledPayload = filledPayload.replace(/{{CODIGO_SENHA}}/g, profile.codigoSenha || '');
+          filledPayload = filledPayload.replace(/{{DATA_HOJE}}/g, new Date().toISOString().slice(0, 10));
+          filledPayload = filledPayload.replace(/{{TIMESTAMP_AGORA}}/g, new Date().toISOString());
+          if (profile.customVars && typeof profile.customVars === 'object') {
+            Object.entries(profile.customVars).forEach(([k, v]) => {
+              filledPayload = filledPayload.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '');
+            });
+          }
 
           // Executar requisição
           const promise = executeRequest(profile, attendanceNumber, filledPayload, config)

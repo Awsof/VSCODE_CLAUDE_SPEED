@@ -1009,6 +1009,95 @@ const Renderer = (() => {
     return results;
   };
 
+  const _buildCustomFieldsHTML = (vars, profile) => {
+    if (!vars || !vars.length) return '';
+    const customVars = profile?.customVars || {};
+    const attendanceMode = profile?.attendanceMode || 'sequential';
+    const attendanceFixed = profile?.attendanceFixed || '';
+
+    const hasAtendimento = vars.some(v => v.type === 'atendimento');
+    const customFields = vars.filter(v => v.type === 'custom' || v.type === 'atendimento_apoiado');
+    const globalFields = vars.filter(v => v.type === 'global');
+    const autoFields = vars.filter(v => v.type === 'execution_auto');
+
+    let html = `<div style="background:#F8F9FA;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-top:4px;">
+      <p style="margin:0 0 12px;font-size:.85em;font-weight:600;color:#374151;">Parâmetros do Método</p>`;
+
+    if (globalFields.length) {
+      html += `<div style="margin-bottom:10px;">`;
+      globalFields.forEach(f => {
+        html += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:.8em;font-weight:500;margin:2px;background:#E0F7F6;color:#0F9B94;border:1px solid #0F9B94;">
+          <span style="opacity:.7;">[global]</span> ${UtilsEngine.escapeXML(f.name)}
+          <span style="opacity:.55;font-size:.9em;">— auto-preenchido do perfil</span>
+        </span>`;
+      });
+      html += `</div>`;
+    }
+    if (autoFields.length) {
+      html += `<div style="margin-bottom:10px;">`;
+      autoFields.forEach(f => {
+        html += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:.8em;font-weight:500;margin:2px;background:#EFF6FF;color:#3B82F6;border:1px solid #3B82F6;">
+          <span style="opacity:.7;">[auto]</span> ${UtilsEngine.escapeXML(f.name)}
+          <span style="opacity:.55;font-size:.9em;">— gerado em runtime</span>
+        </span>`;
+      });
+      html += `</div>`;
+    }
+
+    if (hasAtendimento) {
+      const seqChecked   = attendanceMode === 'sequential' ? 'checked' : '';
+      const randChecked  = attendanceMode === 'random'     ? 'checked' : '';
+      const fixedChecked = attendanceMode === 'fixed'      ? 'checked' : '';
+      const fixedDisplay = attendanceMode === 'fixed'      ? 'block' : 'none';
+      html += `
+      <div style="margin-bottom:12px;">
+        <label style="font-size:.85em;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+          Modo de geração — NumeroAtendimento
+        </label>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
+            <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}
+              onchange="document.getElementById('attendance-fixed-row').style.display='none'">
+            Sequencial <span style="color:#9CA3AF;font-size:.85em;">(PRD20260625001…)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
+            <input type="radio" name="attendance-mode" value="random" ${randChecked}
+              onchange="document.getElementById('attendance-fixed-row').style.display='none'">
+            Aleatório <span style="color:#9CA3AF;font-size:.85em;">(4 dígitos)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85em;">
+            <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}
+              onchange="document.getElementById('attendance-fixed-row').style.display='block'">
+            Fixo
+          </label>
+        </div>
+        <div id="attendance-fixed-row" style="margin-top:8px;display:${fixedDisplay};">
+          <input id="attendance-fixed-value" type="text" placeholder="Digite o valor fixo do número de atendimento"
+            value="${UtilsEngine.escapeXML(attendanceFixed)}"
+            style="width:100%;max-width:320px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;" />
+        </div>
+      </div>`;
+    }
+
+    customFields.forEach(f => {
+      const val = UtilsEngine.escapeXML(customVars[f.name] || '');
+      const typeLabel = f.type === 'atendimento_apoiado' ? 'apoiado' : 'custom';
+      html += `
+      <label style="display:block;margin-bottom:10px;font-size:.85em;font-weight:600;color:#374151;">
+        ${UtilsEngine.escapeXML(f.name)}
+        <span style="font-weight:400;color:#9CA3AF;margin-left:4px;">[${typeLabel}]</span>
+        <input type="text" data-custom-var="${UtilsEngine.escapeXML(f.name)}"
+          placeholder="Valor para {{${UtilsEngine.escapeXML(f.name)}}}"
+          value="${val}"
+          style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:.9em;" />
+        <span style="font-size:.75em;color:#9CA3AF;">Substitui {{${UtilsEngine.escapeXML(f.name)}}} no XML do método</span>
+      </label>`;
+    });
+
+    html += `</div>`;
+    return html;
+  };
+
   const _buildProfileModalBody = (profile = null) => {
     const groups = GroupsManager.list();
     const methods = MethodsManager.list();
@@ -1063,9 +1152,23 @@ const Renderer = (() => {
               ? '<small class="field-note" style="color:#DC2626;">Nenhum método cadastrado. Acesse "Métodos SOAP" para cadastrar primeiro.</small>'
               : '<small class="field-note">Selecione o método SOAP que este teste irá usar na execução.</small>'}
           </label>
+          <div id="method-custom-fields" style="grid-column: 1 / -1;"></div>
         </div>
       </form>
     `;
+  };
+
+  const _attachMethodCustomFieldsListener = (profile) => {
+    const methodSel = document.getElementById('profile-method-id');
+    const container = document.getElementById('method-custom-fields');
+    if (!methodSel || !container) return;
+    const render = () => {
+      const mid = methodSel.value;
+      const method = mid ? MethodsManager.getById(mid) : null;
+      container.innerHTML = _buildCustomFieldsHTML(method?.variables || [], profile);
+    };
+    methodSel.addEventListener('change', render);
+    render();
   };
 
   const _showCreateProfileModal = () => {
@@ -1082,6 +1185,7 @@ const Renderer = (() => {
         _submitProfileForm(null);
       };
     }
+    _attachMethodCustomFieldsListener(null);
   };
 
   const _showEditProfileModal = (profileId) => {
@@ -1100,6 +1204,7 @@ const Renderer = (() => {
         _submitProfileForm(profileId);
       };
     }
+    _attachMethodCustomFieldsListener(profile);
   };
 
   const _submitProfileForm = (profileId = null) => {
@@ -1115,6 +1220,15 @@ const Renderer = (() => {
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
     const createdBy = currentUser?.usuario || 'admin';
 
+    // Coletar campos customizados detectados pelo método
+    const customVars = {};
+    document.querySelectorAll('[data-custom-var]').forEach(el => {
+      const key = el.dataset.customVar;
+      if (key) customVars[key] = el.value.trim();
+    });
+    const attendanceMode = document.querySelector('[name="attendance-mode"]:checked')?.value || 'sequential';
+    const attendanceFixed = document.getElementById('attendance-fixed-value')?.value.trim() || '';
+
     if (!name) return NotificationsManager.danger('O nome do perfil é obrigatório');
     if (!code) return NotificationsManager.danger('O código do perfil é obrigatório');
     if (!url) return NotificationsManager.danger('A URL SOAP do perfil é obrigatória');
@@ -1123,7 +1237,8 @@ const Renderer = (() => {
     if (profileId) {
       result = ProfilesManager.update(profileId, {
         nome: name, codigo: code, url, version,
-        codigoApoiado, codigoSenha, cor: color, groupId, methodId
+        codigoApoiado, codigoSenha, cor: color, groupId, methodId,
+        customVars, attendanceMode, attendanceFixed
       });
       if (!result) return NotificationsManager.danger('Falha ao atualizar perfil.');
       AuditLogManager.record('teste:editar', name);
@@ -1132,6 +1247,7 @@ const Renderer = (() => {
       result = ProfilesManager.create({
         nome: name, codigo: code, url, version,
         codigoApoiado, codigoSenha, cor: color, groupId, methodId,
+        customVars, attendanceMode, attendanceFixed,
         criadoPor: createdBy
       });
       if (!result) return NotificationsManager.danger(`Falha ao criar perfil. Já existe um perfil com o código "${code.toUpperCase()}". Use um código diferente.`);
@@ -1144,8 +1260,46 @@ const Renderer = (() => {
     _attachEventListeners();
   };
 
+  const _VAR_BADGE_STYLES = {
+    global:            'background:#E0F7F6;color:#0F9B94;border:1px solid #0F9B94;',
+    execution_auto:    'background:#EFF6FF;color:#3B82F6;border:1px solid #3B82F6;',
+    atendimento:       'background:#FEF3C7;color:#92700A;border:1px solid #C49B3C;',
+    atendimento_apoiado:'background:#F5F3FF;color:#6D28D9;border:1px solid #8B5CF6;',
+    custom:            'background:#F3F4F6;color:#374151;border:1px solid #9CA3AF;',
+  };
+
+  const _VAR_TYPE_LABELS = {
+    global:            'global',
+    execution_auto:    'auto',
+    atendimento:       'atendimento',
+    atendimento_apoiado:'apoiado',
+    custom:            'custom',
+  };
+
+  const _renderVarBadges = (vars) => {
+    const preview = document.getElementById('method-vars-preview');
+    const counter = document.getElementById('method-vars-count');
+    if (!preview) return;
+    if (!vars || !vars.length) {
+      preview.innerHTML = '<span style="color:#9CA3AF;font-size:.85em;">Nenhum campo detectado.</span>';
+      if (counter) counter.textContent = '';
+      return;
+    }
+    const html = vars.map(v => {
+      const style = _VAR_BADGE_STYLES[v.type] || _VAR_BADGE_STYLES.custom;
+      const label = _VAR_TYPE_LABELS[v.type] || v.type;
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:.8em;font-weight:500;margin:2px;${style}">
+        <span style="opacity:.7;font-size:.75em;">[${UtilsEngine.escapeXML(label)}]</span>
+        ${UtilsEngine.escapeXML(v.name)}
+      </span>`;
+    }).join('');
+    preview.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;">${html}</div>`;
+    if (counter) counter.textContent = `${vars.length} campo(s) detectado(s)`;
+  };
+
   const _buildMethodModalBody = (method = null) => {
     const v = (field, fallback = '') => method ? (method[field] ?? fallback) : fallback;
+    const varsJson = JSON.stringify(v('variables', []));
     return `
       <form id="method-creation-form">
         <div class="form-grid">
@@ -1175,12 +1329,34 @@ const Renderer = (() => {
           </label>
           <label class="field" style="grid-column: 1 / -1;">
             Payload SOAP (template XML)
-            <textarea id="method-payload" rows="10" placeholder="Cole aqui o envelope SOAP completo. Use {{NUM_ATENDIMENTO}}, {{CODIGO_APOIADO}}, {{CODIGO_SENHA}} como placeholders.">${v('payloadTemplate')}</textarea>
-            <small class="field-note">Cole o XML completo incluindo &lt;soap:Envelope&gt;. Placeholders: {{NUM_ATENDIMENTO}}, {{CODIGO_APOIADO}}, {{CODIGO_SENHA}}.</small>
+            <textarea id="method-payload" rows="10" placeholder="Cole o envelope SOAP completo. Deixe as tags variáveis vazias (ex: &lt;NumeroAtendimento&gt;&lt;/NumeroAtendimento&gt;) e clique em Detectar Campos.">${v('payloadTemplate')}</textarea>
+            <small class="field-note">Cole o XML com tags vazias ou placeholders {{VAR}}. Use "Detectar Campos" para identificar os campos automaticamente.</small>
           </label>
+          <div style="grid-column: 1 / -1; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button type="button" id="btn-detect-vars" style="padding:6px 14px;background:#003761;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:500;">
+              Detectar Campos
+            </button>
+            <span id="method-vars-count" style="color:#6B7280;font-size:.85em;"></span>
+          </div>
+          <div id="method-vars-preview" style="grid-column: 1 / -1; min-height:28px;"></div>
+          <input type="hidden" id="method-vars-json" value="${UtilsEngine.escapeXML(varsJson)}" />
         </div>
       </form>
     `;
+  };
+
+  const _attachDetectVarsListener = () => {
+    const btn = document.getElementById('btn-detect-vars');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const xml = document.getElementById('method-payload')?.value.trim();
+      if (!xml) return NotificationsManager.warning('Cole o XML antes de detectar.');
+      let vars = UtilsEngine.extractTags(xml);
+      if (!vars.length) vars = UtilsEngine.extractVariables(xml);
+      const jsonInput = document.getElementById('method-vars-json');
+      if (jsonInput) jsonInput.value = JSON.stringify(vars);
+      _renderVarBadges(vars);
+    });
   };
 
   const _showCreateMethodModal = () => {
@@ -1194,6 +1370,7 @@ const Renderer = (() => {
     if (confirmButton) {
       confirmButton.onclick = (e) => { e.preventDefault(); _submitMethodForm(null); };
     }
+    _attachDetectVarsListener();
   };
 
   const _showEditMethodModal = (methodId) => {
@@ -1209,6 +1386,11 @@ const Renderer = (() => {
     if (confirmButton) {
       confirmButton.onclick = (e) => { e.preventDefault(); _submitMethodForm(methodId); };
     }
+    _attachDetectVarsListener();
+    // Pré-renderiza badges se método já tem variables salvas
+    if (method.variables && method.variables.length) {
+      _renderVarBadges(method.variables);
+    }
   };
 
   const _submitMethodForm = (methodId = null) => {
@@ -1217,7 +1399,7 @@ const Renderer = (() => {
     const soapAction = document.getElementById('method-soapaction')?.value.trim();
     const xmlTag = document.getElementById('method-xmltag')?.value.trim() || 'diag:NumeroAtendimentoApoiado';
     const descricao = document.getElementById('method-descricao')?.value.trim() || '';
-    const payloadTemplate = document.getElementById('method-payload')?.value.trim();
+    let payloadTemplate = document.getElementById('method-payload')?.value.trim();
     const currentUser = state.currentUser || SessionManager.getCurrentUser();
     const criadoPor = currentUser?.usuario || 'admin';
 
@@ -1225,14 +1407,27 @@ const Renderer = (() => {
     if (!soapAction) return NotificationsManager.danger('SOAPAction é obrigatório');
     if (!payloadTemplate) return NotificationsManager.danger('Payload SOAP é obrigatório');
 
+    // Obter variables detectadas (ou auto-detectar se usuário não clicou em Detectar)
+    let variables;
+    try {
+      variables = JSON.parse(document.getElementById('method-vars-json')?.value || '[]');
+    } catch { variables = []; }
+    if (!variables.length) {
+      variables = UtilsEngine.extractTags(payloadTemplate);
+      if (!variables.length) variables = UtilsEngine.extractVariables(payloadTemplate);
+    }
+
+    // Converter tags vazias para placeholders {{...}} no template
+    payloadTemplate = UtilsEngine.convertEmptyTagsToPlaceholders(payloadTemplate, variables);
+
     let result;
     if (methodId) {
-      result = MethodsManager.update(methodId, { nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate });
+      result = MethodsManager.update(methodId, { nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate, variables });
       if (!result) return NotificationsManager.danger('Falha ao atualizar método');
       AuditLogManager.record('metodo:editar', nome);
       NotificationsManager.success('Método atualizado com sucesso');
     } else {
-      result = MethodsManager.create({ nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate, criadoPor });
+      result = MethodsManager.create({ nome, operacao: operacao || nome, soapAction, xmlTag, descricao, payloadTemplate, variables, criadoPor });
       if (!result) return NotificationsManager.danger('Falha ao criar método');
       AuditLogManager.record('metodo:criar', nome);
       NotificationsManager.success('Método criado com sucesso');

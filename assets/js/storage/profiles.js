@@ -161,7 +161,8 @@ const ProfilesManager = (() => {
    * Criar novo perfil
    */
   const create = (profileData) => {
-    const { nome, codigo, url, version, payloadTemplate, xmlTag, soapAction, cor, groupId, criadoPor, codigoApoiado, codigoSenha } = profileData;
+    const { nome, codigo, url, version, payloadTemplate, xmlTag, soapAction, cor, groupId, criadoPor,
+            codigoApoiado, codigoSenha, methodId, customVars, attendanceMode, attendanceFixed } = profileData;
 
     // Validações
     if (!nome || !codigo || !url || !criadoPor) {
@@ -189,6 +190,10 @@ const ProfilesManager = (() => {
         soapAction: soapAction || null,
         codigoApoiado: codigoApoiado || null,
         codigoSenha: codigoSenha || null,
+        methodId: methodId || null,
+        customVars: customVars || {},
+        attendanceMode: attendanceMode || 'sequential',
+        attendanceFixed: attendanceFixed || '',
         cor: cor || '#0F9B94',
         groupId: groupId || null,
         criadoPor,
