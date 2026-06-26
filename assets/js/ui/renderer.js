@@ -1267,7 +1267,7 @@ const Renderer = (() => {
             <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
                 <input type="radio" name="attendance-mode" value="sequential" ${seqChecked}>
-                Sequencial <span style="color:#9CA3AF;font-size:.85em;">(PRD20260625001…)</span>
+                Sequencial <span style="color:#9CA3AF;font-size:.85em;">(ex: 26062026PRD…0001)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9em;">
                 <input type="radio" name="attendance-mode" value="fixed" ${fixedChecked}>
@@ -2264,6 +2264,108 @@ const Renderer = (() => {
     setTimeout(() => window.location.reload(), 1500);
   };
 
+  // Valores padrão do RBAC por nível (espelha rbac.js PERMISSIONS)
+  const _RBAC_DEFAULTS = {
+    'profiles:list':         { operador: true,  visualizador: true  },
+    'profiles:create':       { operador: true,  visualizador: false },
+    'profiles:edit':         { operador: true,  visualizador: false },
+    'profiles:delete':       { operador: true,  visualizador: false },
+    'groups:list':           { operador: true,  visualizador: true  },
+    'groups:create':         { operador: true,  visualizador: false },
+    'groups:edit':           { operador: true,  visualizador: false },
+    'groups:delete':         { operador: true,  visualizador: false },
+    'scenarios:list':        { operador: true,  visualizador: false },
+    'scenarios:create':      { operador: true,  visualizador: false },
+    'scenarios:edit':        { operador: true,  visualizador: false },
+    'scenarios:delete':      { operador: true,  visualizador: false },
+    'scenarios:execute':     { operador: true,  visualizador: false },
+    'methods:list':          { operador: true,  visualizador: true  },
+    'methods:create':        { operador: true,  visualizador: false },
+    'methods:edit':          { operador: true,  visualizador: false },
+    'methods:delete':        { operador: false, visualizador: false },
+    'tests:execute_manual':  { operador: true,  visualizador: true  },
+    'tests:execute_scheduled':{ operador: true, visualizador: false },
+    'scheduler:list':        { operador: true,  visualizador: false },
+    'scheduler:create':      { operador: true,  visualizador: false },
+    'scheduler:edit':        { operador: true,  visualizador: false },
+    'scheduler:delete':      { operador: true,  visualizador: false },
+    'scheduler:toggle':      { operador: true,  visualizador: false },
+    'results:list':          { operador: true,  visualizador: true  },
+    'results:view_detail':   { operador: true,  visualizador: true  },
+    'results:export':        { operador: true,  visualizador: false },
+    'results:delete':        { operador: false, visualizador: false },
+    'import:profiles':       { operador: true,  visualizador: false },
+    'export:config':         { operador: true,  visualizador: false },
+    'export:results':        { operador: true,  visualizador: false },
+  };
+
+  const _PERM_GROUPS = [
+    { label: 'Execução de Testes',      keys: ['tests:execute_manual', 'tests:execute_scheduled'] },
+    { label: 'Perfis / Testes',         keys: ['profiles:list', 'profiles:create', 'profiles:edit', 'profiles:delete'] },
+    { label: 'Grupos',                  keys: ['groups:list', 'groups:create', 'groups:edit', 'groups:delete'] },
+    { label: 'Agendamentos',            keys: ['scheduler:list', 'scheduler:create', 'scheduler:edit', 'scheduler:delete', 'scheduler:toggle'] },
+    { label: 'Métodos SOAP',            keys: ['methods:list', 'methods:create', 'methods:edit', 'methods:delete'] },
+    { label: 'Cenários / Checklists',   keys: ['scenarios:list', 'scenarios:create', 'scenarios:edit', 'scenarios:delete', 'scenarios:execute'] },
+    { label: 'Resultados',              keys: ['results:list', 'results:view_detail', 'results:export', 'results:delete'] },
+    { label: 'Importação / Exportação', keys: ['import:profiles', 'export:config', 'export:results'] },
+  ];
+
+  const _buildRolePanel = (nivel) => {
+    const cfg      = window.RoleConfigManager ? RoleConfigManager.getRoleConfig(nivel) : { permissions: {}, limits: {} };
+    const perms    = cfg.permissions || {};
+    const limits   = cfg.limits     || {};
+    const defaults = window.RoleConfigManager ? RoleConfigManager.getDefaultLimits(nivel) : { maxRequests: 10, maxConcurrency: 10, maxSchedules: 0 };
+
+    const getEffective = (key) => Object.prototype.hasOwnProperty.call(perms, key)
+      ? perms[key]
+      : ((_RBAC_DEFAULTS[key] || {})[nivel] ?? false);
+
+    const permHtml = _PERM_GROUPS.map(g => `
+      <div style="margin-bottom:14px;">
+        <div style="font-size:.78em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${g.label}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${g.keys.map(key => {
+            const checked = getEffective(key);
+            const lbl = key.split(':').pop().replace(/_/g, ' ');
+            return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.84em;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);">
+              <input type="checkbox" data-perm-key="${key}" data-perm-role="${nivel}" ${checked ? 'checked' : ''} style="accent-color:var(--color-action);">
+              ${lbl}
+            </label>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+
+    return `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:.88em;font-weight:700;color:var(--text);margin-bottom:10px;">Limites de Execução</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;">
+          <label style="display:block;font-size:.84em;">Máx. Requests por execução
+            <input type="number" id="limit-maxRequests-${nivel}" min="1" max="9999"
+              value="${limits.maxRequests ?? defaults.maxRequests}"
+              style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.9em;" />
+          </label>
+          <label style="display:block;font-size:.84em;">Máx. Concorrência
+            <input type="number" id="limit-maxConcurrency-${nivel}" min="1" max="20"
+              value="${limits.maxConcurrency ?? defaults.maxConcurrency}"
+              style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.9em;" />
+          </label>
+          <label style="display:block;font-size:.84em;">Máx. Agendamentos ativos
+            <input type="number" id="limit-maxSchedules-${nivel}" min="0" max="200"
+              value="${limits.maxSchedules ?? defaults.maxSchedules}"
+              style="display:block;width:100%;margin-top:4px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.9em;" />
+          </label>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:.88em;font-weight:700;color:var(--text);margin-bottom:10px;">Permissões de Funcionalidades</div>
+        ${permHtml}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="button primary" type="button" data-save-role="${nivel}">Salvar Permissões</button>
+        <button class="button secondary" type="button" data-reset-role="${nivel}">Restaurar Padrões</button>
+      </div>`;
+  };
+
   const _renderSettings = () => {
     const user = state.currentUser || { usuario: '—', nivel: '—' };
     const allResults = ResultsManager.list();
@@ -2370,6 +2472,20 @@ const Renderer = (() => {
         </div>
       </section>
       ${user.nivel === 'admin' ? `
+      <section class="section-card fade-in-up" id="section-role-permissions">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title">Permissões por Nível de Acesso</h3>
+            <p class="section-subtitle">Configure o que cada nível pode visualizar e executar. Admin sempre tem acesso total e não é editável.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <button class="button primary small" id="role-tab-operador" data-role-tab="operador" style="font-size:.83em;">Operador</button>
+          <button class="button secondary small" id="role-tab-visualizador" data-role-tab="visualizador" style="font-size:.83em;">Visualizador</button>
+        </div>
+        <div id="role-panel-operador">${_buildRolePanel('operador')}</div>
+        <div id="role-panel-visualizador" style="display:none;">${_buildRolePanel('visualizador')}</div>
+      </section>
       <section class="section-card fade-in-up">
         <div class="section-header">
           <div>
@@ -3091,6 +3207,64 @@ const Renderer = (() => {
         });
       });
     }
+
+    // ─── Permissões por nível ───────────────────────────────────────────────
+    document.querySelectorAll('[data-role-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const role = btn.dataset.roleTab;
+        // Alternar active nos botões
+        document.querySelectorAll('[data-role-tab]').forEach(b => {
+          b.className = b.dataset.roleTab === role ? 'button primary small' : 'button secondary small';
+          b.style.fontSize = '.83em';
+        });
+        // Mostrar/esconder painéis
+        ['operador', 'visualizador'].forEach(r => {
+          const panel = document.getElementById(`role-panel-${r}`);
+          if (panel) panel.style.display = r === role ? '' : 'none';
+        });
+      });
+    });
+
+    document.querySelectorAll('[data-save-role]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nivel = btn.dataset.saveRole;
+        if (!window.RoleConfigManager) return;
+
+        // Coletar permissões do painel
+        const newPerms = {};
+        document.querySelectorAll(`[data-perm-role="${nivel}"]`).forEach(cb => {
+          newPerms[cb.dataset.permKey] = cb.checked;
+        });
+
+        // Coletar limites
+        const newLimits = {
+          maxRequests:   parseInt(document.getElementById(`limit-maxRequests-${nivel}`)?.value || '0', 10),
+          maxConcurrency:parseInt(document.getElementById(`limit-maxConcurrency-${nivel}`)?.value || '1', 10),
+          maxSchedules:  parseInt(document.getElementById(`limit-maxSchedules-${nivel}`)?.value || '0', 10),
+        };
+
+        RoleConfigManager.saveRoleConfig(nivel, newPerms, newLimits);
+        NotificationsManager.success(`Permissões do nível "${nivel}" salvas com sucesso.`);
+      });
+    });
+
+    document.querySelectorAll('[data-reset-role]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nivel = btn.dataset.resetRole;
+        ModalManager.confirm({
+          title: 'Restaurar permissões padrão',
+          body: `<p>Todos os overrides do nível <strong>${nivel}</strong> serão removidos e as permissões padrão do sistema serão restauradas. Continuar?</p>`,
+          confirmText: 'Restaurar',
+          cancelText: 'Cancelar',
+          onConfirm: () => {
+            if (window.RoleConfigManager) RoleConfigManager.reset(nivel);
+            NotificationsManager.success(`Permissões do nível "${nivel}" restauradas para o padrão.`);
+            _renderMainContent('settings');
+            _attachEventListeners();
+          }
+        });
+      });
+    });
 
     document.getElementById('btn-export-data')?.addEventListener('click', async () => {
       try { await _exportData(); }

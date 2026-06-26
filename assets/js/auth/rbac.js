@@ -93,6 +93,15 @@ const RBACManager = (() => {
       return false;
     }
 
+    // Admin nunca é bloqueado por overrides
+    if (nivel === 'admin') return true;
+
+    // Verificar override dinâmico (se manager disponível)
+    if (window.RoleConfigManager) {
+      const override = RoleConfigManager.getPermission(nivel, recurso);
+      if (override !== null) return override;
+    }
+
     return perms[nivel] === true;
   };
 
@@ -189,6 +198,10 @@ const RBACManager = (() => {
       operador:     { maxRequests: 50,   maxConcurrency: 50   },
       visualizador: { maxRequests: 10,   maxConcurrency: 10   },
     };
+    if (nivel !== 'admin' && window.RoleConfigManager) {
+      const customLimits = RoleConfigManager.getLimits(nivel);
+      if (customLimits) return { ...(MAP[nivel] || {}), ...customLimits };
+    }
     return MAP[nivel] || { maxRequests: 1, maxConcurrency: 1 };
   };
 

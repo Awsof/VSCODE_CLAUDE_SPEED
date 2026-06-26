@@ -101,6 +101,23 @@ const UtilsEngine = (() => {
   };
 
   /**
+   * Gerar número de atendimento sequencial para NumeroAtendimentoApoiado.
+   * Formato: DDMMYYYY{CODIGO}{SEQ:0000} — ex: 26062026PRD125880001
+   */
+  const generateApoiadoAttendanceNumber = (profileCode) => {
+    const t = new Date();
+    const dd   = String(t.getDate()).padStart(2, '0');
+    const mm   = String(t.getMonth() + 1).padStart(2, '0');
+    const yyyy = t.getFullYear();
+    const dateStr = `${dd}${mm}${yyyy}`;
+    const code = (profileCode || 'GEN').toUpperCase().replace(/\s+/g, '');
+    const storageKey = `stp_apoiado_${code}_${dateStr}`;
+    const seq = parseInt(localStorage.getItem(storageKey) || '0', 10) + 1;
+    localStorage.setItem(storageKey, String(seq));
+    return `${dateStr}${code}${String(seq).padStart(4, '0')}`;
+  };
+
+  /**
    * Sleep/delay
    */
   const sleep = (ms) => {
@@ -179,6 +196,7 @@ const UtilsEngine = (() => {
   return {
     SPECIAL_TAG_TYPES,
     generateAttendanceNumber,
+    generateApoiadoAttendanceNumber,
     generateRandomAttendanceNumber,
     extractTags,
     extractVariables,

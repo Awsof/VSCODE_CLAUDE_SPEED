@@ -224,7 +224,11 @@ const RunnerEngine = (() => {
           filledPayload = filledPayload.replace(/{{TIMESTAMP_AGORA}}/g, new Date().toISOString());
           if (profile.customVars && typeof profile.customVars === 'object') {
             Object.entries(profile.customVars).forEach(([k, v]) => {
-              filledPayload = filledPayload.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '');
+              let sub = v || '';
+              if (k === 'NumeroAtendimentoApoiado' && profile.attendanceMode !== 'fixed' && !v) {
+                sub = UtilsEngine.generateApoiadoAttendanceNumber(profile.codigo);
+              }
+              filledPayload = filledPayload.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), sub);
             });
           }
 

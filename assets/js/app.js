@@ -87,6 +87,7 @@ const AppBootstrap = (() => {
     MethodsManager.syncFromTurso?.().catch(() => {});
     SchedulerManager.syncFromTurso?.().catch(() => {});
     ProfilesManager.syncFromTurso?.().catch(() => {});
+    RoleConfigManager.syncFromTurso?.().catch(() => {});
 
     // Alertar se sessão não tem JWT (login via localStorage antigo — sem sync API)
     if (!SessionManager.getToken?.()) {
@@ -199,7 +200,7 @@ const AppBootstrap = (() => {
     const required = [
       'StorageEngine', 'UsersManager', 'ProfilesManager', 'GroupsManager',
       'ScenariosManager', 'ResultsManager', 'SchedulerManager', 'AuditLogManager',
-      'EndpointsManager',
+      'EndpointsManager', 'RoleConfigManager',
       'SessionManager', 'RBACManager',
       'LoginScreenManager', 'SidebarManager', 'NotificationsManager', 'ModalManager', 'Renderer',
       'ConfigEngine', 'XMLEngine', 'UtilsEngine', 'RunnerEngine',

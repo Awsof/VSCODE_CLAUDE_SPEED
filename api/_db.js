@@ -164,4 +164,8 @@ export const initSchema = async (db) => {
     criadoEm TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`);
 };

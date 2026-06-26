@@ -68,6 +68,7 @@ Each module registers itself on `window`. These are the actual global names:
 | `MethodsManager` | `storage/methods.js` | `list, getById, create, update, delete_, count` |
 | `EndpointsManager` | `storage/endpoints.js` | `list, getById, create, update, delete_, count, syncFromTurso` |
 | `AuditLogManager` | `storage/audit-log.js` | `log, list, getByUser` |
+| `RoleConfigManager` | `storage/role-config.js` | `getPermission, getLimits, setPermission, setLimits, saveRoleConfig, reset, resetAll, syncFromTurso, getRoleConfig, getDefaultLimits` |
 | `SessionManager` | `auth/session.js` | `login, logout, getSession, getCurrentUser, isAuthenticated` |
 | `RBACManager` | `auth/rbac.js` | `canCurrent, can, isAdmin, getPermissionsForLevel` |
 | `LoginScreenManager` | `ui/login-screen.js` | `show` |
@@ -217,8 +218,8 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/app.js` | v=17 |
-| `assets/js/ui/renderer.js` | v=31 |
+| `assets/js/app.js` | v=18 |
+| `assets/js/ui/renderer.js` | v=32 |
 | `assets/js/ui/sidebar.js` | v=10 |
 | `assets/js/ui/login-screen.js` | v=20 |
 | `assets/js/features/scheduler.js` | v=10 |
@@ -229,10 +230,12 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 | `assets/js/storage/groups.js` | v=12 |
 | `assets/js/storage/methods.js` | v=13 |
 | `assets/js/storage/endpoints.js` | v=1 |
-| `assets/js/engine/runner.js` | v=12 |
-| `assets/js/engine/utils.js` | v=10 |
+| `assets/js/storage/role-config.js` | v=1 |
+| `assets/js/engine/runner.js` | v=13 |
+| `assets/js/engine/utils.js` | v=11 |
 | `assets/js/reports/reports.js` | v=20 |
 | `assets/js/auth/session.js` | v=15 |
+| `assets/js/auth/rbac.js` | v=10 |
 | All other JS/CSS | v=9 |
 
 ## Turso DB — Entidades sincronizadas
@@ -248,6 +251,7 @@ Todas as entidades abaixo são persistidas no Turso (libSQL/SQLite) em `libsql:/
 | Métodos SOAP | `methods` | `api/methods.js`, `api/methods/[id].js` | `MethodsManager` | ao navegar para aba Métodos |
 | Agendamentos | `schedules` | `api/schedules.js`, `api/schedules/[id].js` | `SchedulerManager` | ao navegar para aba Agendamentos |
 | Endpoints | `endpoints` | `api/endpoints.js` | `EndpointsManager` | `syncFromTurso()` no boot + ao navegar para aba Endpoints |
+| Config de Permissões | `app_settings` | `api/app-settings.js` | `RoleConfigManager` | `syncFromTurso()` no boot (key `role_config`) |
 
 **Cenários** permanecem apenas em localStorage (sem Turso).
 
