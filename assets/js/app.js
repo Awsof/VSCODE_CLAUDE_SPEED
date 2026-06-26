@@ -38,7 +38,6 @@ const AppBootstrap = (() => {
       const currentUser = SessionManager.getCurrentUser();
 
       if (isAuthed && currentUser) {
-        console.log(`[AppBootstrap] Sessão ativa para: ${currentUser.usuario} (${currentUser.nivel})`);
         if (currentUser.senhaTemporaria) {
           console.log('[AppBootstrap] Senha temporária detectada — solicitando troca');
           LoginScreenManager.renderForcePasswordChange(currentUser);

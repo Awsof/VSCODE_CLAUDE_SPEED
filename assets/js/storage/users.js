@@ -33,9 +33,15 @@ const UsersManager = (() => {
     }
   };
 
+  const _authFetch = (path) => {
+    const token = typeof SessionManager !== 'undefined' ? SessionManager.getToken?.() : null;
+    const opts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : {};
+    return fetch(path, opts);
+  };
+
   const init = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await _authFetch('/api/users');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       const tursoUsers = data.users || [];
@@ -83,8 +89,8 @@ const UsersManager = (() => {
     if (!nome || !email || !usuario || !senha || !nivel) {
       console.error('[UsersManager] Campos obrigatorios faltando'); return null;
     }
-    if (getByUsername(usuario)) { console.error('[UsersManager] Usuario ja existe:', usuario); return null; }
-    if (getByEmail(email))      { console.error('[UsersManager] Email ja existe:', email);    return null; }
+    if (getByUsername(usuario)) { return null; }
+    if (getByEmail(email))      { return null; }
     const niveis = ['admin', 'operador', 'visualizador'];
     if (!niveis.includes(nivel)) { console.error('[UsersManager] Nivel invalido:', nivel); return null; }
     try {
@@ -139,7 +145,7 @@ const UsersManager = (() => {
 
   const syncFromTurso = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await _authFetch('/api/users');
       if (!res.ok) return false;
       const data = await res.json();
       const remote = data.users || [];

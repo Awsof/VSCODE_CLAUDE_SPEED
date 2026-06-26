@@ -210,16 +210,13 @@ const LoginScreenManager = (() => {
    */
   const _tryServerLogin = async (usuario, senha) => {
     try {
-      console.log('[LoginScreenManager] Tentando /api/login com usuário:', usuario);
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, senha })
       });
 
-      console.log('[LoginScreenManager] /api/login status:', response.status);
       const result = await response.json();
-      console.log('[LoginScreenManager] /api/login resultado:', { ok: result.ok, mode: result.mode, code: result.code });
       return result;
     } catch (error) {
       console.warn('[LoginScreenManager] Erro no /api/login:', error.message);
@@ -254,11 +251,9 @@ const LoginScreenManager = (() => {
 
       try {
         const serverLogin = await _tryServerLogin(username, password);
-        console.log('[LoginScreenManager] Server login response:', serverLogin);
 
         // Usar resultado da API somente se confirmou ok: true (env vars ou Turso)
         if (serverLogin?.ok === true) {
-          console.log('[LoginScreenManager] Login via API bem-sucedido, mode:', serverLogin.mode);
           const apiUser = serverLogin.user || {
             id: 'api-user-' + username,
             nome: username,
@@ -282,21 +277,14 @@ const LoginScreenManager = (() => {
         }
 
         // Sempre tentar localStorage (usuarios criados no sistema)
-        console.log('[LoginScreenManager] Tentando validar contra localStorage');
         const user = await UsersManager.validate(username, password);
 
         if (user) {
-          // Login bem-sucedido
-          console.log('[LoginScreenManager] Login localStorage bem-sucedido para:', username);
           SessionManager.login(user);
-
-          // Redirecionar para app principal
           setTimeout(() => {
             window.location.href = window.location.pathname;
           }, 500);
         } else {
-          // Credenciais inválidas
-          console.log('[LoginScreenManager] Login falhou para:', username);
           errorDiv.textContent = 'Usuário ou senha incorretos';
           errorDiv.style.display = 'block';
           loadingDiv.style.display = 'none';
@@ -479,7 +467,6 @@ const LoginScreenManager = (() => {
             btn.disabled = false;
             return;
           }
-          console.log('[ForceChange] Turso atualizado: senhaTemporaria=false e novo hash');
         }
 
         // Turso confirmado (ou sem token) — atualizar local e redirecionar
@@ -500,7 +487,6 @@ const LoginScreenManager = (() => {
       return null;
     }
 
-    console.log('[LoginScreenManager] Criando usuário admin padrão: admin/admin');
     return await UsersManager.create({
       nome: 'Administrador',
       email: 'admin@dbsync.local',

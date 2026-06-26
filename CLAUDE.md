@@ -217,14 +217,14 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 |------|---------|
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
-| `assets/js/app.js` | v=16 |
+| `assets/js/app.js` | v=17 |
 | `assets/js/ui/renderer.js` | v=31 |
 | `assets/js/ui/sidebar.js` | v=10 |
-| `assets/js/ui/login-screen.js` | v=19 |
+| `assets/js/ui/login-screen.js` | v=20 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=15 |
 | `assets/js/storage/results.js` | v=14 |
-| `assets/js/storage/users.js` | v=15 |
+| `assets/js/storage/users.js` | v=16 |
 | `assets/js/storage/profiles.js` | v=11 |
 | `assets/js/storage/groups.js` | v=12 |
 | `assets/js/storage/methods.js` | v=13 |
@@ -232,7 +232,7 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 | `assets/js/engine/runner.js` | v=12 |
 | `assets/js/engine/utils.js` | v=10 |
 | `assets/js/reports/reports.js` | v=20 |
-| `assets/js/auth/session.js` | v=14 |
+| `assets/js/auth/session.js` | v=15 |
 | All other JS/CSS | v=9 |
 
 ## Turso DB — Entidades sincronizadas

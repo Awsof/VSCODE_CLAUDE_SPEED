@@ -113,7 +113,6 @@ const SessionManager = (() => {
       };
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      console.log(`[SessionManager] Login bem-sucedido para: ${user.usuario} (${user.nivel})`);
       
       // Disparar evento customizado
       window.dispatchEvent(new CustomEvent('session:login', { detail: user }));
