@@ -93,7 +93,7 @@ All localStorage keys use the `stp_v3_` prefix (prevents conflicts with legacy v
 
 ### Authentication & RBAC
 
-Three user roles: `admin`, `operador`, `visualizador`. The correct permission check is `RBACManager.canCurrent(resource)` — 78 permission resources are defined in `auth/rbac.js`. Passwords are SHA-256 hashed client-side. Sessions expire after **30 minutes of inactivity** (tracked via `lastActivity` timestamp, updated on every user action). Session data is stored in `sessionStorage` (volatile — cleared on tab close), not localStorage.
+Three user roles: `admin`, `operador`, `visualizador`. The correct permission check is `RBACManager.canCurrent(resource)` — 78 permission resources are defined in `auth/rbac.js`. Key capability summary: `visualizador` can view Dashboard/results/lists and **execute manual tests** (`tests:execute_manual: true`) but cannot export, create/edit entities, or manage schedules; `operador` adds full CRUD on profiles/groups/scenarios/methods and export; `admin` adds user management and system settings. Passwords are SHA-256 hashed client-side. Sessions expire after **30 minutes of inactivity** (tracked via `lastActivity` timestamp, updated on every user action). Session data is stored in `sessionStorage` (volatile — cleared on tab close), not localStorage.
 
 **Login lockout:** after 5 consecutive failed attempts, `api/login.js` sets `lockedUntil` (+15 min) in the Turso `users` table and returns HTTP 429. Successful login resets `loginFailures` and `lockedUntil` to zero/null.
 
@@ -218,13 +218,13 @@ After editing any JS or CSS file, increment its `?v=N` in `index.html` and redep
 | `assets/css/layout.css` | v=10 |
 | `assets/css/charts.css` | v=10 |
 | `assets/js/app.js` | v=16 |
-| `assets/js/ui/renderer.js` | v=30 |
+| `assets/js/ui/renderer.js` | v=31 |
 | `assets/js/ui/sidebar.js` | v=10 |
 | `assets/js/ui/login-screen.js` | v=19 |
 | `assets/js/features/scheduler.js` | v=10 |
 | `assets/js/storage/schedules.js` | v=15 |
 | `assets/js/storage/results.js` | v=14 |
-| `assets/js/storage/users.js` | v=14 |
+| `assets/js/storage/users.js` | v=15 |
 | `assets/js/storage/profiles.js` | v=11 |
 | `assets/js/storage/groups.js` | v=12 |
 | `assets/js/storage/methods.js` | v=13 |

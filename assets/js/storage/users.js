@@ -145,10 +145,6 @@ const UsersManager = (() => {
       const remote = data.users || [];
       const local = StorageEngine.get(STORE_KEY, []);
 
-      const remoteIds = remote.map(u => u.id).sort().join();
-      const localIds  = local.map(u => u.id).sort().join();
-      if (remoteIds === localIds && remote.length === local.length) return false;
-
       // API não retorna senhaHash por segurança — preservar hash local
       const localHashes = {};
       local.forEach(u => { if (u.senhaHash) localHashes[u.id] = u.senhaHash; });

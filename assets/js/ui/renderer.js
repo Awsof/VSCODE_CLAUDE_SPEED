@@ -3752,7 +3752,7 @@ const Renderer = (() => {
     document.querySelectorAll('[data-action="activate-user"]').forEach(button => {
       button.addEventListener('click', async () => {
         const userId = button.dataset.userId;
-        await UsersManager.setActive(userId, true, { inativacaoTipo: null, inativoAte: null });
+        await UsersManager.setActive(userId, true, { inativacaoTipo: null, inativoAte: null, senhaTemporaria: false });
         NotificationsManager.success('Usuário reativado com sucesso');
         _renderMainContent('users');
         _attachEventListeners();
