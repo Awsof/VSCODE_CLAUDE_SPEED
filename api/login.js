@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
     const hash = sha256(senha);
     const { rows } = await db.execute({
-      sql: 'SELECT * FROM users WHERE usuario = ? AND ativo = 1',
+      sql: 'SELECT * FROM users WHERE usuario = ?',
       args: [String(usuario).trim().toLowerCase()]
     });
 
@@ -36,6 +36,11 @@ export default async function handler(req, res) {
         const minLeft = Math.ceil((new Date(u0.lockedUntil) - new Date()) / 60000);
         return res.status(429).json({ ok: false, error: `Conta bloqueada por excesso de tentativas. Tente em ${minLeft} min.` });
       }
+    }
+
+    // Bloquear usuário inativo antes de verificar senha
+    if (rows.length && !Number(rows[0].ativo)) {
+      return res.status(403).json({ ok: false, error: 'Usuário desativado', code: 'INACTIVE' });
     }
 
     if (!rows.length || rows[0].senhaHash !== hash) {

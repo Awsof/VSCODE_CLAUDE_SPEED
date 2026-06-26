@@ -218,14 +218,8 @@ const LoginScreenManager = (() => {
       });
 
       console.log('[LoginScreenManager] /api/login status:', response.status);
-
-      if (!response.ok) {
-        console.warn('[LoginScreenManager] /api/login retornou status:', response.status);
-        return null;
-      }
-
       const result = await response.json();
-      console.log('[LoginScreenManager] /api/login resultado:', { ok: result.ok, mode: result.mode });
+      console.log('[LoginScreenManager] /api/login resultado:', { ok: result.ok, mode: result.mode, code: result.code });
       return result;
     } catch (error) {
       console.warn('[LoginScreenManager] Erro no /api/login:', error.message);
@@ -275,6 +269,15 @@ const LoginScreenManager = (() => {
           setTimeout(() => {
             window.location.href = window.location.pathname;
           }, 500);
+          return;
+        }
+
+        // Conta desativada — bloquear sem fallback para localStorage
+        if (serverLogin?.code === 'INACTIVE') {
+          errorDiv.textContent = 'Usuário Desativado - Entrar em contato com administrador.';
+          errorDiv.style.display = 'block';
+          loadingDiv.style.display = 'none';
+          submitBtn.disabled = false;
           return;
         }
 
