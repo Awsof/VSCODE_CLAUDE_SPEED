@@ -151,7 +151,7 @@ const AppBootstrap = (() => {
         _activityDebounce = null;
       }, 5000);
     };
-    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+    ['keydown', 'click', 'touchstart'].forEach(evt => {
       document.addEventListener(evt, _onUserActivity, { passive: true });
     });
 
