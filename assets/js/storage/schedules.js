@@ -248,12 +248,24 @@ const SchedulerManager = (() => {
         : _calculateNextExecutionFromCron(schedule.cron)
     };
 
+    // Auto-desativar quando não há mais execuções futuras programadas
+    if (updated.proximaExecucao === null) {
+      updated.ativo = false;
+    }
+
     StorageEngine.set(`${namespace}_${scheduleId}`, updated);
     _apiSync('PATCH', '/api/schedules?id=' + scheduleId, {
       action: 'recordExecution',
       ultimaExecucao: updated.ultimaExecucao,
       proximaExecucao: updated.proximaExecucao
     });
+    if (!updated.ativo && schedule.ativo) {
+      _apiSync('PATCH', '/api/schedules?id=' + scheduleId, {
+        action: 'setAtivo',
+        ativo: false,
+        proximaExecucao: null
+      });
+    }
   };
 
   /**

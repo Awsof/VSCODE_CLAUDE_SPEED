@@ -31,9 +31,12 @@ const SessionManager = (() => {
       const lastActive = new Date(session.lastActivity || session.loginAt).getTime();
       const elapsed = Date.now() - lastActive;
 
-      // Não expirar sessão enquanto houver agendamentos ativos
+      // Não expirar sessão enquanto houver agendamento ativo com execução futura pendente
+      const _now = new Date();
       const hasActiveSchedules = typeof SchedulerManager !== 'undefined'
-        && SchedulerManager.list().some(s => s.ativo);
+        && SchedulerManager.list().some(s =>
+          s.ativo && s.proximaExecucao && new Date(s.proximaExecucao) > _now
+        );
 
       if (!hasActiveSchedules && elapsed > SESSION_TIMEOUT) {
         console.warn('[SessionManager] Sessão expirada por inatividade');

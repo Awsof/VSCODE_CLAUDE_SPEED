@@ -329,7 +329,7 @@
 
 <!-- DOWNLOAD BAR -->
 <div class="download-bar">
-  <span class="download-bar-info"><strong>Speed Teste DBSync</strong> — Guia do Usuário &nbsp;·&nbsp; Versão 3.1 &nbsp;·&nbsp; 2026-06-25</span>
+  <span class="download-bar-info"><strong>Speed Teste DBSync</strong> — Guia do Usuário &nbsp;·&nbsp; Versão 3.1 &nbsp;·&nbsp; 2026-06-26</span>
   <button class="btn-download" onclick="window.print()">
     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
     Baixar / Imprimir PDF
@@ -429,7 +429,7 @@
         <div class="role-card viewer">
           <div class="role-icon">👁️</div>
           <div class="role-name">Visualizador</div>
-          <div class="role-desc">Apenas consulta o Dashboard e o histórico de resultados. Não executa testes.</div>
+          <div class="role-desc">Consulta Dashboard, listas e resultados. Pode executar testes manuais. Não cria, edita, exporta ou agenda.</div>
         </div>
       </div>
     </div>
@@ -453,16 +453,22 @@
             <td><span class="badge yes">Sim</span></td>
           </tr>
           <tr>
-            <td>Testes (criar / executar)</td>
+            <td>Testes — Criar / Editar</td>
             <td><span class="badge yes">Sim</span></td>
             <td><span class="badge yes">Sim</span></td>
             <td><span class="badge no">Não</span></td>
           </tr>
           <tr>
+            <td>Testes — Executar (manual)</td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+            <td><span class="badge yes">Sim</span></td>
+          </tr>
+          <tr>
             <td>Grupos</td>
             <td><span class="badge yes">Sim</span></td>
             <td><span class="badge yes">Sim</span></td>
-            <td><span class="badge no">Não</span></td>
+            <td><span class="badge read">Somente leitura</span></td>
           </tr>
           <tr>
             <td>Agendamentos</td>
@@ -701,10 +707,10 @@
               <thead><tr><th>Campo</th><th>O que preencher</th></tr></thead>
               <tbody>
                 <tr><td><strong>Nome</strong></td><td>Nome amigável para identificar o serviço (ex: "DBSYNC Produção")</td></tr>
-                <tr><td><strong>URL</strong></td><td>Endereço completo do serviço (fornecido pela equipe de TI)</td></tr>
+                <tr><td><strong>Endpoint (URL)</strong></td><td>Selecione no dropdown o endereço do serviço cadastrado no catálogo de Endpoints. A URL é preenchida automaticamente.</td></tr>
                 <tr><td><strong>SOAPAction</strong></td><td>Identificador da operação (fornecido pela equipe de TI)</td></tr>
                 <tr><td><strong>Grupo</strong></td><td>Opcional — associe a um grupo existente</td></tr>
-                <tr><td><strong>Cor</strong></td><td>Cor para identificar visualmente este teste nos gráficos</td></tr>
+                <tr><td><strong>Modo Nº Atendimento</strong></td><td>"Sequencial" (gerado automaticamente a cada requisição) ou "Fixo" (você define um número fixo para todos os envios)</td></tr>
               </tbody>
             </table>
           </div>
@@ -746,6 +752,11 @@
           <div class="step-body">Se precisar parar antes de terminar, clique em <strong>Abortar</strong>.</div>
         </div>
       </div>
+    </div>
+
+    <div class="note">
+      <span class="note-icon">ℹ️</span>
+      <span>Antes de criar um Teste, cadastre ao menos um <strong>Endpoint</strong> (seção 5). O dropdown de URL só listará endpoints já cadastrados no catálogo.</span>
     </div>
 
     <div class="warn">

@@ -2,7 +2,7 @@
 
 **Público-alvo:** Analistas e desenvolvedores responsáveis pela manutenção e evolução do sistema  
 **Projeto:** Monitor de Performance para endpoints SOAP/WCF — Grupo DB · Medicina Diagnóstica  
-**Última atualização:** 2026-06-25
+**Última atualização:** 2026-06-26
 
 ---
 
@@ -129,6 +129,7 @@ Speed_TESTE_NEW/
 │       │   ├── results.js            #   ResultsManager
 │       │   ├── schedules.js          #   SchedulerManager
 │       │   ├── methods.js            #   MethodsManager
+│       │   ├── endpoints.js          #   EndpointsManager
 │       │   └── audit-log.js          #   AuditLogManager
 │       ├── auth/                     # Fase 2 — Autenticação e autorização
 │       │   ├── session.js            #   SessionManager (30min inatividade)
@@ -160,7 +161,7 @@ Chart.js, XLSX (CDN)
   ↓
 storage/engine.js
   ↓
-storage/users.js, profiles.js, groups.js, scenarios.js, results.js, schedules.js, methods.js, audit-log.js
+storage/users.js, profiles.js, groups.js, scenarios.js, results.js, schedules.js, methods.js, endpoints.js, audit-log.js
   ↓
 auth/session.js, auth/rbac.js
   ↓
@@ -243,7 +244,7 @@ window.MeuModulo = MeuModulo;
 | `ProfilesManager` | `storage/profiles.js` | Endpoints SOAP e templates de payload | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)`, `count()` |
 | `GroupsManager` | `storage/groups.js` | Agrupamento de perfis | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)` |
 | `ScenariosManager` | `storage/scenarios.js` | Cenários de teste com passos sequenciais | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)` |
-| `ResultsManager` | `storage/results.js` | Histórico de execuções (max 5.000) | `save(result)`, `list()`, `getById(id)`, `getStats()`, `cleanup()` |
+| `ResultsManager` | `storage/results.js` | Histórico de execuções (IndexedDB, max 10.000) | `init()` (async), `add(data)`, `addBatch(list)`, `list()`, `getById(id)`, `getStats()`, `clear()` (async), `count()` |
 | `SchedulerManager` | `storage/schedules.js` | Persistência de agendamentos | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)`, `getDue()`, `recordExecution(id)` |
 | `MethodsManager` | `storage/methods.js` | Métodos SOAP reutilizáveis | `create(data)`, `list()`, `getById(id)`, `update(id, data)`, `delete(id)` |
 | `EndpointsManager` | `storage/endpoints.js` | Catálogo de URLs de endpoints SOAP | `list()`, `getById(id)`, `create(data)`, `update(id, data)`, `delete_(id)`, `count()`, `syncFromTurso()` |
@@ -498,9 +499,9 @@ Três papéis com capacidades crescentes:
 
 | Papel | Capacidades |
 |-------|------------|
-| `visualizador` | Ver resultados, exportar relatórios |
-| `operador` | + Criar/editar perfis, grupos, cenários; executar testes |
-| `admin` | + Gerenciar usuários, configurações, agendamentos |
+| `visualizador` | Ver Dashboard, resultados e listas (perfis, grupos, métodos); executar testes manuais. Não pode exportar, criar/editar entidades ou agendar |
+| `operador` | + Criar/editar perfis, grupos, cenários, métodos; exportar resultados; configurar e ativar agendamentos |
+| `admin` | + Gerenciar usuários, excluir registros, acessar configurações do sistema |
 
 **Sempre verificar permissão antes de renderizar ações destrutivas:**
 
@@ -570,7 +571,7 @@ Novos usuários recebem uma **senha temporária** do administrador. Ao fazer log
    → Extrai o valor da tag configurada (ex: diag:NumeroAtendimentoApoiado)
    → Sempre retorna null se não encontrado (nunca undefined)
         ↓
-8. ResultsManager.save(result) — persiste com origem e executadoPor
+8. ResultsManager.add(result) — persiste com origem e executadoPor
         ↓
 9. RunnerEngine emite eventos → UI atualiza progresso em tempo real
 ```
@@ -1029,7 +1030,7 @@ ProfilesManager.delete(id);
 Todo resultado salvo **deve** ter:
 
 ```javascript
-ResultsManager.save({
+ResultsManager.add({
   // ... outros campos ...
   origem: 'manual',                          // "manual" | "schedule" | "scenario"
   executadoPor: SessionManager.getCurrentUser().userId
@@ -1101,7 +1102,7 @@ Os browsers cacheiam arquivos JS e CSS agressivamente. Para garantir que usuári
 | `ui/renderer.js` | v=30 |
 | `ui/sidebar.js` | v=10 |
 | `auth/session.js` | v=14 |
-| `ui/login-screen.js` | v=18 |
+| `ui/login-screen.js` | v=19 |
 | `app.js` | v=16 |
 | `features/scheduler.js` | v=10 |
 | `storage/schedules.js` | v=15 |
